@@ -39,6 +39,9 @@ if (!defined('GLPI_ROOT')) {
  * Reminder Class
 **/
 class Reminder extends CommonDBVisible {
+   use PlanningEvent {
+      post_getEmpty as trait_post_getEmpty;
+   }
 
    // From CommonDBTM
    public $dohistory                   = true;

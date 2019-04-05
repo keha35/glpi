@@ -2023,6 +2023,36 @@ class Entity extends CommonTreeDropdown {
 
 
    /**
+    * Returns tag containing custom CSS code applied to entity.
+    *
+    * @return string
+    */
+   public function getCustomCssTag() {
+
+      $enable_custom_css = self::getUsedConfig(
+         'enable_custom_css',
+         $this->fields['id']
+      );
+
+      if (!$enable_custom_css) {
+         return '';
+      }
+
+      $custom_css_code = self::getUsedConfig(
+         'enable_custom_css',
+         $this->fields['id'],
+         'custom_css_code',
+         ''
+      );
+
+      if (empty($custom_css_code)) {
+         return '';
+      }
+
+      return '<style>' . Html::entities_deep($custom_css_code) . '</style>';
+   }
+
+   /**
     * @since 0.84 (before in entitydata.class)
     *
     * @param $field
