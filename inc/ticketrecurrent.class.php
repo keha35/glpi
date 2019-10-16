@@ -307,91 +307,116 @@ class TicketRecurrent extends CommonDropdown {
 
 
    /**
-    * Compute next creation date of a ticket
+    * Compute next creation date of a ticket.
     *
-    * New parameter in  version 0.84 : $calendars_id
+    * @param string         $begin_date     Begin date of the recurrent ticket in 'Y-m-d H:i:s' format.
+    * @param string         $end_date       End date of the recurrent ticket in 'Y-m-d H:i:s' format,
+    *                                       or 'NULL' or empty value.
+    * @param string|integer $periodicity    Periodicity of creation, could be:
+    *                                        - an integer corresponding to seconds,
+    *                                        - a string using "/([0-9]+)(MONTH|YEAR)/" pattern.
+    * @param integer        $create_before  Anticipated creation delay in seconds.
+    * @param integer|null   $calendars_id   ID of the calendar to use to restrict creation to working hours,
+    *                                       or 0 / null for no calendar.
     *
-    * @param $begin_date      datetime    Begin date of the recurrent ticket
-    * @param $end_date        datetime    End date of the recurrent ticket
-    * @param $periodicity     timestamp   Periodicity of creation
-    * @param $create_before   timestamp   Create before specific timestamp
-    * @param $calendars_id    integer     ID of the calendar to used
+    * @return string  Next creation date in 'Y-m-d H:i:s' format.
     *
-    * @return datetime next creation date
-   **/
+    * @since 0.84 $calendars_id parameter added
+    */
    function computeNextCreationDate($begin_date, $end_date, $periodicity, $create_before,
                                     $calendars_id) {
 
-      if (empty($begin_date) || ($begin_date == 'NULL')) {
-         return 'NULL';
-      }
-      if (!empty($end_date) && ($end_date <> 'NULL')) {
-         if (strtotime($end_date) < time()) {
-            return 'NULL';
-         }
-      }
-      $check = true;
-      if (preg_match('/([0-9]+)MONTH/', $periodicity)
-          || preg_match('/([0-9]+)YEAR/', $periodicity)) {
-         $check = false;
-      }
+      $now = time();
+      $periodicity_pattern = '/([0-9]+)(MONTH|YEAR)/';
 
-      if ($check
-          && ($create_before > $periodicity)) {
-         Session::addMessageAfterRedirect(__('Invalid frequency. It must be greater than the preliminary creation.'),
-                                          false, ERROR);
+      if (false === DateTime::createFromFormat('Y-m-d H:i:s', $begin_date)) {
+         // Invalid begin date.
          return 'NULL';
       }
 
-      if ($periodicity <> 0) {
-         // Standard time computation
-         $timestart  = strtotime($begin_date) - $create_before;
-         $now        = time();
-         if ($now > $timestart) {
-            $value = $periodicity;
-            $step  = "second";
-            if (preg_match('/([0-9]+)MONTH/', $periodicity, $matches)) {
-               $value = $matches[1];
-               $step  = 'MONTH';
-            } else if (preg_match('/([0-9]+)YEAR/', $periodicity, $matches)) {
-               $value = $matches[1];
-               $step  = 'YEAR';
-            } else {
-               if (($value%DAY_TIMESTAMP)==0) {
-                  $value = $value/DAY_TIMESTAMP;
-                  $step  = "DAY";
-               } else {
-                  $value = $value/HOUR_TIMESTAMP;
-                  $step  = "HOUR";
-               }
-            }
+      $has_end_date = false !== DateTime::createFromFormat('Y-m-d H:i:s', $end_date);
+      if ($has_end_date && strtotime($end_date) < $now) {
+         // End date is in past.
+         return 'NULL';
+      }
 
-            while ($timestart < $now) {
-               $timestart = strtotime("+ $value $step", $timestart);
+      if (!is_int($periodicity) && !preg_match('/^\d+$/', $periodicity)
+          && !preg_match($periodicity_pattern, $periodicity)) {
+         // Invalid periodicity.
+         return 'NULL';
+      }
+
+      // Compute periodicity values
+      $periodicity_as_interval = null;
+      $periodicity_in_seconds = $periodicity;
+      $matches = [];
+      if (preg_match($periodicity_pattern, $periodicity, $matches)) {
+         $periodicity_as_interval = "{$matches[1]} {$matches[2]}";
+         $periodicity_in_seconds  = $matches[1]
+            * MONTH_TIMESTAMP
+            * ('YEAR' === $matches[2] ? 12 : 1);
+      } else if ($periodicity % DAY_TIMESTAMP == 0) {
+         $periodicity_as_interval = ($periodicity / DAY_TIMESTAMP) . ' DAY';
+      } else {
+         $periodicity_as_interval = ($periodicity / HOUR_TIMESTAMP) . ' HOUR';
+      }
+
+      // Check that anticipated creation delay is greater than periodicity.
+      if ($create_before > $periodicity_in_seconds) {
+         Session::addMessageAfterRedirect(
+            __('Invalid frequency. It must be greater than the preliminary creation.'),
+            false,
+            ERROR
+         );
+         return 'NULL';
+      }
+
+      $calendar = new Calendar();
+      if ($calendars_id && $calendar->getFromDB($calendars_id) && $calendar->hasAWorkingDay()) {
+         // Base computation on calendar if calendar is defined
+
+         $occurence_date = $calendar->computeEndDate(
+            $begin_date,
+            0, // 0 second delay to get the first working "second"
+            0,
+            false
+         );
+         $occurence_time = strtotime($occurence_date);
+         $creation_time  = $occurence_time - $create_before;
+
+         while ($creation_time < $now) {
+            $occurence_date = $calendar->computeEndDate(
+               date('Y-m-d H:i:s', $occurence_time),
+               $periodicity_in_seconds,
+               0,
+               $periodicity_in_seconds >= DAY_TIMESTAMP
+            );
+            $occurence_time = strtotime($occurence_date);
+            $creation_time  = $occurence_time - $create_before;
+
+            // Stop if end date reached
+            if ($has_end_date && $occurence_time > strtotime($end_date)) {
+               return 'NULL';
             }
-         }
-         // Time start over end date
-         if (!empty($end_date) && ($end_date <> 'NULL')) {
-            if ($timestart > strtotime($end_date)) {
+         };
+      } else {
+         // First occurence of creation
+         $occurence_time = strtotime($begin_date);
+         $creation_time  = $occurence_time - $create_before;
+
+         // Add steps while creation time is in past
+         while ($creation_time < $now) {
+            $creation_time  = strtotime("+ $periodicity_as_interval", $creation_time);
+            $occurence_time = $creation_time + $create_before;
+
+            // Stop if end date reached
+            if ($has_end_date && $occurence_time > strtotime($end_date)) {
                return 'NULL';
             }
          }
-
-         $calendar = new Calendar();
-         if ($calendars_id
-             && $calendar->getFromDB($calendars_id)) {
-            $durations = $calendar->getDurationsCache();
-            if (array_sum($durations) > 0) { // working days exists
-               while (!$calendar->isAWorkingDay($timestart)) {
-                  $timestart = strtotime("+ 1 day", $timestart);
-               }
-            }
-         }
-
-         return date("Y-m-d H:i:s", $timestart);
       }
 
-      return 'NULL';
+      return date("Y-m-d H:i:s", $creation_time);
    }
 
 

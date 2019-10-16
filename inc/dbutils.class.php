@@ -629,10 +629,7 @@ final class DbUtils {
       if ($is_recursive) {
          $ancestors = [];
          if (is_array($value)) {
-            foreach ($value as $val) {
-               $ancestors = array_unique(array_merge($this->getAncestorsOf('glpi_entities', $val),
-                     $ancestors));
-            }
+            $ancestors = $this->getAncestorsOf("glpi_entities", $value);
             $ancestors = array_diff($ancestors, $value);
 
          } else if (strlen($value) == 0) {
@@ -673,7 +670,7 @@ final class DbUtils {
    public function getSonsOf($table, $IDf) {
       global $DB, $GLPI_CACHE;
 
-      $ckey = $table . '_sons_cache_' . $IDf;
+      $ckey = 'sons_cache_' . md5($table . $IDf);
       $sons = false;
 
       if (Toolbox::useCache()) {
@@ -780,11 +777,11 @@ final class DbUtils {
    public function getAncestorsOf($table, $items_id) {
       global $DB, $GLPI_CACHE;
 
-      $ckey = $table . '_ancestors_cache_';
+      $ckey = 'ancestors_cache_';
       if (is_array($items_id)) {
-         $ckey .= md5(implode('|', $items_id));
+         $ckey .= md5($table . implode('|', $items_id));
       } else {
-         $ckey .= $items_id;
+         $ckey .= md5($table . $items_id);
       }
       $ancestors = [];
 
@@ -1682,7 +1679,6 @@ final class DbUtils {
                                                                            $data["usercategories_id"])];
                }
                if (count($comments)) {
-                  $user['comment'] = $user['comment'];
                   foreach ($comments as $datas) {
                      // Do not use SPAN here
                      $user['comment'] .= sprintf(__('%1$s: %2$s')."<br>",

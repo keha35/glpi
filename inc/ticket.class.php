@@ -439,6 +439,7 @@ class Ticket extends CommonITILObject {
          $ola->setTicketCalendar($calendars_id);
          if ($ola->fields['type'] == SLM::TTR) {
             $data["olalevels_id_ttr"] = OlaLevel::getFirstOlaLevel($olas_id);
+            $data['ola_ttr_begin_date'] = $date;
          }
          // Compute time_to_resolve
          $data[$dateField]             = $ola->computeDate($date);
@@ -1122,7 +1123,9 @@ class Ticket extends CommonITILObject {
          }
       }
 
-      /// Process Business Rules
+      // Process Business Rules
+      $this->fillInputForBusinessRules($input);
+
       // Add actors on standard input
       $rules               = new RuleTicketCollection($entid);
       $rule                = $rules->getRuleClass();
@@ -1242,9 +1245,6 @@ class Ticket extends CommonITILObject {
          $input = Toolbox::stripslashes_deep($input);
       }
 
-      //Action for send_validation rule : do validation before clean
-      $this->manageValidationAdd($input);
-
       // Clean actors fields added for rules
       foreach ($tocleanafterrules as $key => $val) {
          if ($input[$key] == $val) {
@@ -1296,7 +1296,6 @@ class Ticket extends CommonITILObject {
 
       if (isset($input['content'])) {
          if (isset($input['_filename'])) {
-            $input['content']       = $input['content'];
             $input['_disablenotif'] = true;
          } else {
             $input['_donotadddocs'] = true;
@@ -1506,7 +1505,8 @@ class Ticket extends CommonITILObject {
 
    function pre_updateInDB() {
 
-      if (!$this->isAlreadyTakenIntoAccount() && $this->canTakeIntoAccount()) {
+      if (!$this->isTakeIntoAccountComputationBlocked($this->input)
+          && !$this->isAlreadyTakenIntoAccount() && $this->canTakeIntoAccount()) {
          $this->updates[]                            = "takeintoaccount_delay_stat";
          $this->fields['takeintoaccount_delay_stat'] = $this->computeTakeIntoAccountDelayStat();
       }
@@ -1540,6 +1540,9 @@ class Ticket extends CommonITILObject {
 
    function post_updateItem($history = 1) {
       global $CFG_GLPI;
+
+      //Action for send_validation rule : do validation before clean
+      $this->manageValidationAdd($this->input);
 
       // Put same status on duplicated tickets when solving or closing (autoclose on solve)
       if (isset($this->input['status'])
@@ -1827,36 +1830,24 @@ class Ticket extends CommonITILObject {
          $input['_users_id_assign'] = Session::getLoginUserID();
       }
 
-      // add calendars matching date creation (for business rules)
-      $calendars = [];
-      $ite_calandar = $DB->request([
-         'SELECT' => ['id'],
-         'FROM'   => Calendar::getTable(),
-         'WHERE'  => getEntitiesRestrictCriteria('', '', $input['entities_id'], true)
-      ]);
-      foreach ($ite_calandar as $calendar_data) {
-         $calendar = new Calendar;
-         $calendar->getFromDB($calendar_data['id']);
-         if ($calendar->isAWorkingHour(time())) {
-            $calendars[] = $calendar_data['id'];
-         }
-      }
-      if (count($calendars)) {
-         $input['_date_creation_calendars_id'] = $calendars;
-      }
-
       // Process Business Rules
+      $this->fillInputForBusinessRules($input);
+
       $rules = new RuleTicketCollection($input['entities_id']);
 
       // Set unset variables with are needed
+      $tmprequester = 0;
       $user = new User();
-      if (isset($input["_users_id_requester"])
-          && !is_array($input["_users_id_requester"])
-          && $user->getFromDB($input["_users_id_requester"])) {
-         $input['users_locations'] = $user->fields['locations_id'];
-         $tmprequester = $input["_users_id_requester"];
-      } else {
-         $tmprequester = 0;
+      if (isset($input["_users_id_requester"])) {
+         if (!is_array($input["_users_id_requester"])
+             && $user->getFromDB($input["_users_id_requester"])) {
+            $input['users_locations'] = $user->fields['locations_id'];
+            $tmprequester = $input["_users_id_requester"];
+         } else if (is_array($input["_users_id_requester"]) && ($user_id = reset($input["_users_id_requester"])) !== false) {
+            if ($user->getFromDB($user_id)) {
+               $input['users_locations'] = $user->fields['locations_id'];
+            }
+         }
       }
 
       // Clean new lines before passing to rules
@@ -1966,6 +1957,7 @@ class Ticket extends CommonITILObject {
       }
 
       // Replay setting auto assign if set in rules engine or by auto_assign_mode
+      // Do not force status if status has been set by rules
       if (((isset($input["_users_id_assign"])
            && ((!is_array($input['_users_id_assign']) &&  $input["_users_id_assign"] > 0)
                || is_array($input['_users_id_assign']) && count($input['_users_id_assign']) > 0))
@@ -1975,8 +1967,8 @@ class Ticket extends CommonITILObject {
            || (isset($input["_suppliers_id_assign"])
            && ((!is_array($input['_suppliers_id_assign']) && $input["_suppliers_id_assign"] > 0)
                || is_array($input['_suppliers_id_assign']) && count($input['_suppliers_id_assign']) > 0)))
-          && (in_array($input['status'], $this->getNewStatusArray()))) {
-
+          && (in_array($input['status'], $this->getNewStatusArray()))
+          && !$this->isStatusComputationBlocked($input)) {
          $input["status"] = self::ASSIGNED;
       }
 
@@ -2000,6 +1992,8 @@ class Ticket extends CommonITILObject {
 
    function post_addItem() {
       global $CFG_GLPI;
+
+      $this->manageValidationAdd($this->input);
 
       // Log this event
       $username = 'anonymous';
@@ -2155,8 +2149,6 @@ class Ticket extends CommonITILObject {
       }
 
       parent::post_addItem();
-
-      $this->manageValidationAdd($this->input);
 
       // Processing Email
       if (!isset($this->input['_disablenotif']) && $CFG_GLPI["use_notifications"]) {
@@ -2562,21 +2554,6 @@ class Ticket extends CommonITILObject {
                  || $this->canRequesterUpdateItem());
    }
 
-
-   function canAddFollowups() {
-
-      return ((Session::haveRight("followup", ITILFollowup::ADDMYTICKET)
-               && ($this->isUser(CommonITILActor::REQUESTER, Session::getLoginUserID())
-                   || (isset($this->fields["users_id_recipient"])
-                        && ($this->fields["users_id_recipient"] === Session::getLoginUserID()))))
-              || Session::haveRight('followup', ITILFollowup::ADDALLTICKET)
-              || (Session::haveRight('followup', ITILFollowup::ADDGROUPTICKET)
-                  && isset($_SESSION["glpigroups"])
-                  && $this->haveAGroup(CommonITILActor::REQUESTER, $_SESSION['glpigroups']))
-              || $this->isUser(CommonITILActor::ASSIGN, Session::getLoginUserID())
-              || (isset($_SESSION["glpigroups"])
-                  && $this->haveAGroup(CommonITILActor::ASSIGN, $_SESSION['glpigroups'])));
-   }
 
    /**
     * Check if user can add followups to the ticket.
@@ -6212,6 +6189,7 @@ class Ticket extends CommonITILObject {
       // Ticket for the item
       // Link to open a new ticket
       if ($item->getID()
+          && !$item->isDeleted()
           && Ticket::isPossibleToAssignType($item->getType())
           && self::canCreate()
           && !(!empty($withtemplate) && ($withtemplate == 2))
@@ -6881,7 +6859,12 @@ class Ticket extends CommonITILObject {
                if (isset($field_id_or_search_options['joinparams']) && Toolbox::in_array_recursive('glpi_itilfollowups', $field_id_or_search_options['joinparams'])) {
                   $opt = ['is_itilfollowup' => 1];
                } else {
-                  $opt = ['is_ticketheader' => 1];
+                  $opt = [
+                     'OR' => [
+                        'is_mail_default' => 1,
+                        'is_ticketheader' => 1
+                     ]
+                  ];
                }
                if ($field_id_or_search_options['linkfield']  == $name) {
                   $opt['is_active'] = 1;
@@ -6999,5 +6982,134 @@ class Ticket extends CommonITILObject {
          'dates'   => $dates,
          'add_now' => $this->getField('closedate') == ""
       ]);
+   }
+
+   /**
+    * Fill input with values related to business rules.
+    *
+    * @param array $input
+    *
+    * @return void
+    */
+   private function fillInputForBusinessRules(array &$input) {
+
+      global $DB;
+
+      $entities_id = isset($input['entities_id'])
+         ? $input['entities_id']
+         : $this->fields['entities_id'];
+
+      // If creation date is not set, then this function is called during ticket creation
+      $creation_date = !empty($this->fields['date_creation'])
+         ? strtotime($this->fields['date_creation'])
+         : time();
+
+      // add calendars matching date creation (for business rules)
+      $calendars = [];
+      $ite_calendar = $DB->request([
+         'SELECT' => ['id'],
+         'FROM'   => Calendar::getTable(),
+         'WHERE'  => getEntitiesRestrictCriteria('', '', $entities_id, true)
+      ]);
+      foreach ($ite_calendar as $calendar_data) {
+         $calendar = new Calendar();
+         $calendar->getFromDB($calendar_data['id']);
+         if ($calendar->isAWorkingHour($creation_date)) {
+            $calendars[] = $calendar_data['id'];
+         }
+      }
+      if (count($calendars)) {
+         $input['_date_creation_calendars_id'] = $calendars;
+      }
+   }
+
+   /**
+    * Build parent condition for search
+    *
+    * @param string $fieldID field used in the condition: tickets_id, items_id
+    *
+    * @return string
+    */
+   public static function buildCanViewCondition($fieldID) {
+
+      $condition = "";
+      $user   = Session::getLoginUserID();
+      $groups = "'" . implode("','", $_SESSION['glpigroups']) . "'";
+
+      $requester = CommonITILActor::REQUESTER;
+      $assign    = CommonITILActor::ASSIGN;
+      $obs       = CommonITILActor::OBSERVER;
+
+      // Avoid empty IN ()
+      if ($groups == "''") {
+         $groups = '-1';
+      }
+
+      if (Session::haveRight("ticket", Ticket::READMY)) {
+         // Add tickets where the users is requester, observer or recipient
+         // Subquery for requester/observer user
+         $user_query = "SELECT `tickets_id`
+            FROM `glpi_tickets_users`
+            WHERE `users_id` = '$user' AND type IN ($requester, $obs)";
+         $condition .= "OR `$fieldID` IN ($user_query) ";
+
+         // Subquery for recipient
+         $recipient_query = "SELECT `id`
+            FROM `glpi_tickets`
+            WHERE `users_id_recipient` = '$user'";
+         $condition .= "OR `$fieldID` IN ($recipient_query) ";
+      }
+
+      if (Session::haveRight("ticket", Ticket::READGROUP)) {
+         // Add tickets where the users is in a requester or observer group
+         // Subquery for requester/observer group
+         $group_query = "SELECT `tickets_id`
+            FROM `glpi_groups_tickets`
+            WHERE `groups_id` IN ($groups) AND type IN ($requester, $obs)";
+         $condition .= "OR `$fieldID` IN ($group_query) ";
+      }
+
+      if (Session::haveRightsOr("ticket", [
+         Ticket::OWN,
+         Ticket::READASSIGN
+      ])) {
+         // Add tickets where the users is assigned
+         // Subquery for assigned user
+         $user_query = "SELECT `tickets_id`
+            FROM `glpi_tickets_users`
+            WHERE `users_id` = '$user' AND type = $assign";
+         $condition .= "OR `$fieldID` IN ($user_query) ";
+      }
+
+      if (Session::haveRight("ticket", Ticket::READASSIGN)) {
+         // Add tickets where the users is part of an assigned group
+         // Subquery for assigned group
+         $group_query = "SELECT `tickets_id`
+            FROM `glpi_groups_tickets`
+            WHERE `groups_id` IN ($groups) AND type = $assign";
+         $condition .= "OR `$fieldID` IN ($group_query) ";
+
+         if (Session::haveRight('ticket', Ticket::ASSIGN)) {
+            // Add new tickets
+            $tickets_query = "SELECT `id`
+               FROM `glpi_tickets`
+               WHERE `status` = '" . CommonITILObject::INCOMING . "'";
+            $condition .= "OR `$fieldID` IN ($tickets_query) ";
+         }
+      }
+
+      if (Session::haveRightsOr('ticketvalidation', [
+         TicketValidation::VALIDATEINCIDENT,
+         TicketValidation::VALIDATEREQUEST
+      ])) {
+         // Add tickets where the users is the validator
+         // Subquery for validator
+         $validation_query = "SELECT `tickets_id`
+            FROM `glpi_ticketvalidations`
+            WHERE `users_id_validate` = '$user'";
+         $condition .= "OR `$fieldID` IN ($validation_query) ";
+      }
+
+      return $condition;
    }
 }

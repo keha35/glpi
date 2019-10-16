@@ -54,6 +54,43 @@ class Computer_SoftwareVersion extends CommonDBRelation {
       return _n('Installation', 'Installations', $nb);
    }
 
+   function rawSearchOptions() {
+      $tab = [];
+
+      $tab[] = [
+         'id'                 => 'common',
+         'name'               => __('Characteristics')
+      ];
+
+      $tab[] = [
+         'id'                 => '2',
+         'table'              => $this->getTable(),
+         'field'              => 'id',
+         'name'               => __('ID'),
+         'massiveaction'      => false,
+         'datatype'           => 'number'
+      ];
+
+      $tab[] = [
+         'id'                 => '3',
+         'table'              => 'glpi_computers',
+         'field'              => 'name',
+         'name'               => _n('Computer', 'Computers', 1),
+         'massiveaction'      => false,
+         'datatype'           => 'dropdown'
+      ];
+
+      $tab[] = [
+         'id'                 => '4',
+         'table'              => 'glpi_softwareversions',
+         'field'              => 'name',
+         'name'               => _n('Version', 'Versions', 1),
+         'datatype'           => 'dropdown',
+         'massiveaction'      => false
+      ];
+
+      return $tab;
+   }
 
    function prepareInputForAdd($input) {
 
@@ -870,7 +907,7 @@ class Computer_SoftwareVersion extends CommonDBRelation {
          [
             'SELECT'       => [
                'glpi_softwarelicenses.*',
-               'glpi_computers_softwarelicenses.id AS linkID',
+               'glpi_computers_softwarelicenses.id AS linkid',
                'glpi_softwares.name AS softname',
                'glpi_softwareversions.name AS version',
                'glpi_states.name AS state'
@@ -1106,7 +1143,7 @@ class Computer_SoftwareVersion extends CommonDBRelation {
    */
    private static function displaySoftsByLicense($data, $computers_id, $withtemplate, $canedit) {
 
-      $ID = $data['linkID'];
+      $ID = $data['linkid'];
 
       $link_item = Toolbox::getItemTypeFormURL('SoftwareLicense');
       $link      = $link_item."?id=".$data['id'];

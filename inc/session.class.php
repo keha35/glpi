@@ -311,7 +311,7 @@ class Session {
       $newentities = [];
       $newroots    = [];
       if (isset($_SESSION['glpiactiveprofile'])) {
-         if ($ID == "all") {
+         if ($ID === "all") {
             $ancestors = [];
             foreach ($_SESSION['glpiactiveprofile']['entities'] as $key => $val) {
                $ancestors               = array_unique(array_merge(getAncestorsOf("glpi_entities",
@@ -889,22 +889,16 @@ class Session {
          return false;
       }
 
-      if (!$is_recursive) {
-         return in_array($ID, $_SESSION['glpiactiveentities']);
-      }
-
       if (in_array($ID, $_SESSION['glpiactiveentities'])) {
          return true;
       }
 
-      /// Recursive object
-      foreach ($_SESSION['glpiactiveentities'] as $ent) {
-         if (in_array($ID, getAncestorsOf("glpi_entities", $ent))) {
-            return true;
-         }
+      if (!$is_recursive) {
+         return false;
       }
 
-      return false;
+      /// Recursive object
+      return in_array($ID, getAncestorsOf("glpi_entities", $_SESSION['glpiactiveentities']));
    }
 
 

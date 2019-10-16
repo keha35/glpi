@@ -187,10 +187,8 @@ abstract class CommonTreeDropdown extends CommonDropdown {
          if ($input[$this->getForeignKeyField()] != $this->fields[$this->getForeignKeyField()]) {
             $input["ancestors_cache"] = '';
             if (Toolbox::useCache()) {
-               $ckey = $this->getTable() . '_ancestors_cache_' . $this->getID();
-               if ($GLPI_CACHE->has($ckey)) {
-                  $GLPI_CACHE->delete($ckey);
-               }
+               $ckey = 'ancestors_cache_' . md5($this->getTable() . $this->getID());
+               $GLPI_CACHE->delete($ckey);
             }
             return $this->adaptTreeFieldsFromUpdateOrAdd($input);
          }
@@ -214,10 +212,8 @@ abstract class CommonTreeDropdown extends CommonDropdown {
 
       //drop from sons cache when needed
       if ($changeParent && Toolbox::useCache()) {
-         $ckey = $this->getTable() . '_ancestors_cache_' . $ID;
-         if ($GLPI_CACHE->has($ckey)) {
-            $GLPI_CACHE->delete($ckey);
-         }
+         $ckey = 'ancestors_cache_' . md5($this->getTable() . $ID);
+         $GLPI_CACHE->delete($ckey);
       }
 
       if (($updateName) || ($changeParent)) {
@@ -309,13 +305,18 @@ abstract class CommonTreeDropdown extends CommonDropdown {
       //drop from sons cache when needed
       if ($cache && Toolbox::useCache()) {
          foreach ($ancestors as $ancestor) {
-            $ckey = $this->getTable() . '_sons_cache_' . $ancestor;
+            $ckey = 'sons_cache_' . md5($this->getTable() . $ancestor);
             if ($GLPI_CACHE->has($ckey)) {
                $sons = $GLPI_CACHE->get($ckey);
                if (isset($sons[$this->getID()])) {
                   unset($sons[$this->getID()]);
                   $GLPI_CACHE->set($ckey, $sons);
                }
+            } else {
+               // If cache key does not exists in current context (UI using APCu), it may exists
+               // in another context (CLI using filesystem). So we force deletion of cache in all contexts
+               // to be sure to not use a stale value.
+               $GLPI_CACHE->delete($ckey);
             }
          }
       }
@@ -334,13 +335,18 @@ abstract class CommonTreeDropdown extends CommonDropdown {
       if (Toolbox::useCache()) {
          $ancestors = getAncestorsOf($this->getTable(), $this->getID());
          foreach ($ancestors as $ancestor) {
-            $ckey = $this->getTable() . '_sons_cache_' . $ancestor;
+            $ckey = 'sons_cache_' . md5($this->getTable() . $ancestor);
             if ($GLPI_CACHE->has($ckey)) {
                $sons = $GLPI_CACHE->get($ckey);
                if (!isset($sons[$this->getID()])) {
                   $sons[$this->getID()] = (string)$this->getID();
                   $GLPI_CACHE->set($ckey, $sons);
                }
+            } else {
+               // If cache key does not exists in current context (UI using APCu), it may exists
+               // in another context (CLI using filesystem). So we force deletion of cache in all contexts
+               // to be sure to not use a stale value.
+               $GLPI_CACHE->delete($ckey);
             }
          }
       }
@@ -470,7 +476,12 @@ abstract class CommonTreeDropdown extends CommonDropdown {
 
       $ID            = $this->getID();
       $this->check($ID, READ);
-      $fields        = $this->getAdditionalFields();
+      $fields = array_filter(
+         $this->getAdditionalFields(),
+         function ($field) {
+            return isset($field['list']) && $field['list'];
+         }
+      );
       $nb            = count($fields);
       $entity_assign = $this->isEntityAssign();
 
@@ -512,9 +523,7 @@ abstract class CommonTreeDropdown extends CommonDropdown {
          $header .= "<th>".__('Entity')."</th>";
       }
       foreach ($fields as $field) {
-         if ($field['list']) {
-            $header .= "<th>".$field['label']."</th>";
-         }
+         $header .= "<th>".$field['label']."</th>";
       }
       $header .= "<th>".__('Comments')."</th>";
       $header .= "</tr>\n";
@@ -535,6 +544,7 @@ abstract class CommonTreeDropdown extends CommonDropdown {
          $nb++;
          echo "<tr class='tab_bg_1'><td>";
          if ((($fk == 'entities_id') && in_array($data['id'], $_SESSION['glpiactiveentities']))
+             || !$entity_assign
              || (($fk != 'entities_id') && in_array($data['entities_id'], $_SESSION['glpiactiveentities']))) {
             echo "<a href='".$this->getFormURL();
             echo '?id='.$data['id']."'>".$data['name']."</a>";
@@ -547,27 +557,25 @@ abstract class CommonTreeDropdown extends CommonDropdown {
          }
 
          foreach ($fields as $field) {
-            if ($field['list']) {
-               echo "<td>";
-               switch ($field['type']) {
-                  case 'UserDropdown' :
-                     echo getUserName($data[$field['name']]);
-                     break;
+            echo "<td>";
+            switch ($field['type']) {
+               case 'UserDropdown' :
+                  echo getUserName($data[$field['name']]);
+                  break;
 
-                  case 'bool' :
-                     echo Dropdown::getYesNo($data[$field['name']]);
-                     break;
+               case 'bool' :
+                  echo Dropdown::getYesNo($data[$field['name']]);
+                  break;
 
-                  case 'dropdownValue' :
-                     echo Dropdown::getDropdownName(getTableNameForForeignKeyField($field['name']),
-                                                    $data[$field['name']]);
-                     break;
+               case 'dropdownValue' :
+                  echo Dropdown::getDropdownName(getTableNameForForeignKeyField($field['name']),
+                                                 $data[$field['name']]);
+                  break;
 
-                  default:
-                     echo $data[$field['name']];
-               }
-               echo "</td>";
+               default:
+                  echo $data[$field['name']];
             }
+            echo "</td>";
          }
          echo "<td>".$data['comment']."</td>";
          echo "</tr>\n";
@@ -689,7 +697,8 @@ abstract class CommonTreeDropdown extends CommonDropdown {
          'table'             => $this->getTable(),
          'field'             => 'name',
          'name'              => __('Name'),
-         'datatype'          => 'itemlink'
+         'datatype'          => 'itemlink',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [

@@ -168,14 +168,15 @@ if (isset($_POST["add"])) {
    Html::redirect(Ticket::getFormURLWithID($_POST['tickets_id']));
 
 } else if (isset($_POST['addme_assign'])) {
-   $ticket_user = new Ticket_User();
-
    $track->check($_POST['tickets_id'], READ);
-   $input = ['tickets_id'       => $_POST['tickets_id'],
-                  'users_id'         => Session::getLoginUserID(),
-                  'use_notification' => 1,
-                  'type'             => CommonITILActor::ASSIGN];
-   $ticket_user->add($input);
+   $track->update([
+      'id' => $_POST['tickets_id'],
+      '_itil_assign' => [
+         '_type' => "user",
+         'users_id' => Session::getLoginUserID(),
+         'use_notification' => 1,
+      ]
+   ]);
    Event::log($_POST['tickets_id'], "ticket", 4, "tracking",
               //TRANS: %s is the user login
               sprintf(__('%s adds an actor'), $_SESSION["glpiname"]));
@@ -227,6 +228,11 @@ if (isset($_GET["id"]) && ($_GET["id"] > 0)) {
    }
 
 } else {
+   if (Session::getCurrentInterface() != 'central') {
+      Html::redirect($CFG_GLPI["root_doc"]."/front/helpdesk.public.php?create_ticket=1");
+      die;
+   }
+
    Html::header(__('New ticket'), '', "helpdesk", "ticket");
    unset($_REQUEST['id']);
    unset($_GET['id']);

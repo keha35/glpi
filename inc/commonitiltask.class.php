@@ -298,6 +298,11 @@ abstract class CommonITILTask  extends CommonDBTM {
                                                $this->fields["begin"]);
       }
 
+      if (isset($this->input['_planningrecall'])) {
+         $this->input['_planningrecall']['items_id'] = $this->fields['id'];
+         PlanningRecall::manageDatas($this->input['_planningrecall']);
+      }
+
       $update_done = false;
       $itemtype    = $this->getItilObjectItemType();
       $item        = new $itemtype();
@@ -653,7 +658,7 @@ abstract class CommonITILTask  extends CommonDBTM {
       $name = _n('Task', 'Tasks', Session::getPluralNumber());
 
       $task_condition = '';
-      if (!Session::haveRight("task", CommonITILTask::SEEPRIVATE)) {
+      if ($task->maybePrivate() && !Session::haveRight("task", CommonITILTask::SEEPRIVATE)) {
          $task_condition = "AND (`NEWTABLE`.`is_private` = 0
                                  OR `NEWTABLE`.`users_id` = '".Session::getLoginUserID()."')";
       }
@@ -1386,6 +1391,11 @@ abstract class CommonITILTask  extends CommonDBTM {
          $this->check(-1, CREATE, $options);
       }
 
+      //prevent null fields due to getFromDB
+      if (is_null($this->fields['begin'])) {
+         $this->fields['begin'] = "";
+      }
+
       $rand = mt_rand();
       $this->showFormHeader($options);
 
@@ -1706,6 +1716,13 @@ abstract class CommonITILTask  extends CommonDBTM {
                                              'addfirstminutes' => true,
                                              'inhours'         => true,
                                              'toadd'           => $toadd]);
+      echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_2'>";
+      echo "<td>".__('Status')."</td>";
+      echo "<td>";
+      Planning::dropdownState("state", $_SESSION['glpitask_state']);
       echo "</td>";
       echo "</tr>";
 

@@ -446,7 +446,8 @@ class MailCollector  extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false
+         'massiveaction'      => false,
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -472,7 +473,8 @@ class MailCollector  extends CommonDBTM {
          'field'              => 'login',
          'name'               => __('Login'),
          'massiveaction'      => false,
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -923,9 +925,8 @@ class MailCollector  extends CommonDBTM {
       }
 
       // prepare match to find ticket id in headers
-      // pattern: GLPI-{itemtype}-{items_id}
-      // ex: GLPI-Ticket-26739
-      $ref_match = "/GLPI-[A-Z]\w+-([0-9]+)/";
+      // header is added in all notifications using pattern: GLPI-{itemtype}-{items_id}
+      $ref_match = "/GLPI-Ticket-([0-9]+)/";
 
       // See In-Reply-To field
       if (isset($head['in_reply_to'])) {
@@ -1099,7 +1100,7 @@ class MailCollector  extends CommonDBTM {
       // and rich text mode is enabled (otherwise remove them)
       $string = str_replace(
          ["\r\n", "\n", "\r"],
-         $this->body_is_html ? '' : $br_marker,
+         $this->body_is_html ? ' ' : $br_marker,
          $string
       );
 

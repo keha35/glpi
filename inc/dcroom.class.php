@@ -237,7 +237,8 @@ class DCRoom extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false // implicit key==1
+         'massiveaction'      => false, // implicit key==1
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -302,6 +303,8 @@ class DCRoom extends CommonDBTM {
       ];
 
       $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
+
+      $tab = array_merge($tab, Datacenter::rawSearchOptionsToAdd(get_class($this)));
 
       return $tab;
    }

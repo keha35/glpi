@@ -171,7 +171,17 @@ abstract class CommonITILObject extends CommonDBTM {
     * @return boolean
     */
    function canAddFollowups() {
-      return Session::haveRight(static::$rightname, UPDATE) and Session::haveRight('followup', CREATE);
+      return ((Session::haveRight("followup", ITILFollowup::ADDMYTICKET)
+               && ($this->isUser(CommonITILActor::REQUESTER, Session::getLoginUserID())
+                   || (isset($this->fields["users_id_recipient"])
+                        && ($this->fields["users_id_recipient"] === Session::getLoginUserID()))))
+              || Session::haveRight('followup', ITILFollowup::ADDALLTICKET)
+              || (Session::haveRight('followup', ITILFollowup::ADDGROUPTICKET)
+                  && isset($_SESSION["glpigroups"])
+                  && $this->haveAGroup(CommonITILActor::REQUESTER, $_SESSION['glpigroups']))
+              || $this->isUser(CommonITILActor::ASSIGN, Session::getLoginUserID())
+              || (isset($_SESSION["glpigroups"])
+                  && $this->haveAGroup(CommonITILActor::ASSIGN, $_SESSION['glpigroups'])));
    }
 
 
@@ -683,10 +693,17 @@ abstract class CommonITILObject extends CommonDBTM {
          unset($input["solvedate"]);
       }
 
+      // "do not compute" flag set by business rules for "takeintoaccount_delay_stat" field
+      $do_not_compute_takeintoaccount = $this->isTakeIntoAccountComputationBlocked($input);
+
       if (isset($input['_itil_requester'])) {
          if (isset($input['_itil_requester']['_type'])) {
-            $input['_itil_requester']['type']                      = CommonITILActor::REQUESTER;
-            $input['_itil_requester'][$this->getForeignKeyField()] = $input['id'];
+            $input['_itil_requester'] = [
+               'type'                            => CommonITILActor::REQUESTER,
+               $this->getForeignKeyField()       => $input['id'],
+               '_do_not_compute_takeintoaccount' => $do_not_compute_takeintoaccount,
+               '_from_object'                    => true,
+            ] + $input['_itil_requester'];
 
             switch ($input['_itil_requester']['_type']) {
                case "user" :
@@ -715,7 +732,6 @@ abstract class CommonITILObject extends CommonDBTM {
                         $useractors = new $this->userlinkclass();
                         if (isset($input['_auto_update'])
                             || $useractors->can(-1, CREATE, $input['_itil_requester'])) {
-                           $input['_itil_requester']['_from_object'] = true;
                            $useractors->add($input['_itil_requester']);
                            $input['_forcenotif']                     = true;
                         }
@@ -729,7 +745,6 @@ abstract class CommonITILObject extends CommonDBTM {
                      $groupactors = new $this->grouplinkclass();
                      if (isset($input['_auto_update'])
                          || $groupactors->can(-1, CREATE, $input['_itil_requester'])) {
-                        $input['_itil_requester']['_from_object'] = true;
                         $groupactors->add($input['_itil_requester']);
                         $input['_forcenotif']                     = true;
                      }
@@ -741,8 +756,12 @@ abstract class CommonITILObject extends CommonDBTM {
 
       if (isset($input['_itil_observer'])) {
          if (isset($input['_itil_observer']['_type'])) {
-            $input['_itil_observer']['type']                      = CommonITILActor::OBSERVER;
-            $input['_itil_observer'][$this->getForeignKeyField()] = $input['id'];
+            $input['_itil_observer'] = [
+               'type'                            => CommonITILActor::OBSERVER,
+               $this->getForeignKeyField()       => $input['id'],
+               '_do_not_compute_takeintoaccount' => $do_not_compute_takeintoaccount,
+               '_from_object'                    => true,
+            ] + $input['_itil_observer'];
 
             switch ($input['_itil_observer']['_type']) {
                case "user" :
@@ -769,7 +788,6 @@ abstract class CommonITILObject extends CommonDBTM {
                         $useractors = new $this->userlinkclass();
                         if (isset($input['_auto_update'])
                            || $useractors->can(-1, CREATE, $input['_itil_observer'])) {
-                           $input['_itil_observer']['_from_object'] = true;
                            $useractors->add($input['_itil_observer']);
                            $input['_forcenotif']                    = true;
                         }
@@ -783,7 +801,6 @@ abstract class CommonITILObject extends CommonDBTM {
                      $groupactors = new $this->grouplinkclass();
                      if (isset($input['_auto_update'])
                          || $groupactors->can(-1, CREATE, $input['_itil_observer'])) {
-                        $input['_itil_observer']['_from_object'] = true;
                         $groupactors->add($input['_itil_observer']);
                         $input['_forcenotif']                    = true;
                      }
@@ -795,8 +812,12 @@ abstract class CommonITILObject extends CommonDBTM {
 
       if (isset($input['_itil_assign'])) {
          if (isset($input['_itil_assign']['_type'])) {
-            $input['_itil_assign']['type']                      = CommonITILActor::ASSIGN;
-            $input['_itil_assign'][$this->getForeignKeyField()] = $input['id'];
+            $input['_itil_assign'] = [
+               'type'                            => CommonITILActor::ASSIGN,
+               $this->getForeignKeyField()       => $input['id'],
+               '_do_not_compute_takeintoaccount' => $do_not_compute_takeintoaccount,
+               '_from_object'                    => true,
+            ] + $input['_itil_assign'];
 
             if (isset($input['_itil_assign']['use_notification'])
                   && is_array($input['_itil_assign']['use_notification'])) {
@@ -816,13 +837,13 @@ abstract class CommonITILObject extends CommonDBTM {
                      $useractors = new $this->userlinkclass();
                      if (isset($input['_auto_update'])
                          || $useractors->can(-1, CREATE, $input['_itil_assign'])) {
-                        $input['_itil_assign']['_from_object'] = true;
                         $useractors->add($input['_itil_assign']);
                         $input['_forcenotif']                  = true;
-                        if ((!isset($input['status'])
+                        if (((!isset($input['status'])
                              && in_array($this->fields['status'], $this->getNewStatusArray()))
                             || (isset($input['status'])
-                                && in_array($input['status'], $this->getNewStatusArray()))) {
+                                && in_array($input['status'], $this->getNewStatusArray())))
+                            && !$this->isStatusComputationBlocked($input)) {
                            if (in_array(self::ASSIGNED, array_keys($this->getAllStatusArray()))) {
                               $input['status'] = self::ASSIGNED;
                            }
@@ -838,13 +859,13 @@ abstract class CommonITILObject extends CommonDBTM {
 
                      if (isset($input['_auto_update'])
                          || $groupactors->can(-1, CREATE, $input['_itil_assign'])) {
-                        $input['_itil_assign']['_from_object'] = true;
                         $groupactors->add($input['_itil_assign']);
                         $input['_forcenotif']                  = true;
-                        if ((!isset($input['status'])
+                        if (((!isset($input['status'])
                              && (in_array($this->fields['status'], $this->getNewStatusArray())))
                             || (isset($input['status'])
-                                && (in_array($input['status'], $this->getNewStatusArray())))) {
+                                && (in_array($input['status'], $this->getNewStatusArray()))))
+                            && !$this->isStatusComputationBlocked($input)) {
                            if (in_array(self::ASSIGNED, array_keys($this->getAllStatusArray()))) {
                               $input['status'] = self::ASSIGNED;
                            }
@@ -861,13 +882,13 @@ abstract class CommonITILObject extends CommonDBTM {
                      $supplieractors = new $this->supplierlinkclass();
                      if (isset($input['_auto_update'])
                          || $supplieractors->can(-1, CREATE, $input['_itil_assign'])) {
-                        $input['_itil_assign']['_from_object'] = true;
                         $supplieractors->add($input['_itil_assign']);
                         $input['_forcenotif']                  = true;
-                        if ((!isset($input['status'])
+                        if (((!isset($input['status'])
                              && (in_array($this->fields['status'], $this->getNewStatusArray())))
                             || (isset($input['status'])
-                                && (in_array($input['status'], $this->getNewStatusArray())))) {
+                                && (in_array($input['status'], $this->getNewStatusArray()))))
+                            && !$this->isStatusComputationBlocked($input)) {
                            if (in_array(self::ASSIGNED, array_keys($this->getAllStatusArray()))) {
                               $input['status'] = self::ASSIGNED;
                            }
@@ -1171,12 +1192,12 @@ abstract class CommonITILObject extends CommonDBTM {
 
             // Compute new internal_time_to_resolve
             $this->updates[]                          = "internal_time_to_resolve";
-            $this->fields['internal_time_to_resolve'] = $ola->computeDate($this->fields['date'],
+            $this->fields['internal_time_to_resolve'] = $ola->computeDate($this->fields['ola_ttr_begin_date'],
                                                                           $this->fields["ola_waiting_duration"]);
             // Add current level to do
             $ola->addLevelToDo($this, $this->fields["olalevels_id_ttr"]);
 
-         } else if (in_array("internal_time_to_resolve", $this->fields)) {
+         } else if (array_key_exists("internal_time_to_resolve", $this->fields)) {
             // Change doesn't have internal_time_to_resolve
             // Using calendar
             if (($calendars_id > 0)
@@ -1462,7 +1483,16 @@ abstract class CommonITILObject extends CommonDBTM {
          $supplieractors = new $this->supplierlinkclass();
       }
 
+      // "do not compute" flag set by business rules for "takeintoaccount_delay_stat" field
+      $do_not_compute_takeintoaccount = $this->isTakeIntoAccountComputationBlocked($this->input);
+
       if (!is_null($useractors)) {
+         $user_input = [
+            $useractors->getItilObjectForeignKey() => $this->fields['id'],
+            '_do_not_compute_takeintoaccount'      => $do_not_compute_takeintoaccount,
+            '_from_object'                         => true,
+         ];
+
          if (isset($this->input["_users_id_requester"])) {
 
             if (is_array($this->input["_users_id_requester"])) {
@@ -1479,9 +1509,10 @@ abstract class CommonITILObject extends CommonDBTM {
                   continue;
                }
 
-               $input2 = [$useractors->getItilObjectForeignKey() => $this->fields['id'],
-                              'users_id'                              => $requester,
-                              'type'                                  => CommonITILActor::REQUESTER];
+               $input2 = [
+                  'users_id' => $requester,
+                  'type'     => CommonITILActor::REQUESTER,
+               ] + $user_input;
 
                if (isset($this->input["_users_id_requester_notif"])) {
                   foreach ($this->input["_users_id_requester_notif"] as $key => $val) {
@@ -1500,7 +1531,6 @@ abstract class CommonITILObject extends CommonDBTM {
                   $requesterToAdd[] = $requester;
                }
 
-               $input2['_from_object'] = true;
                $useractors->add($input2);
             }
          }
@@ -1521,9 +1551,10 @@ abstract class CommonITILObject extends CommonDBTM {
                   continue;
                }
 
-               $input2 = [$useractors->getItilObjectForeignKey() => $this->fields['id'],
-                              'users_id'                              => $observer,
-                              'type'                                  => CommonITILActor::OBSERVER];
+               $input2 = [
+                  'users_id' => $observer,
+                  'type'     => CommonITILActor::OBSERVER,
+               ] + $user_input;
 
                if (isset($this->input["_users_id_observer_notif"])) {
                   foreach ($this->input["_users_id_observer_notif"] as $key => $val) {
@@ -1542,7 +1573,6 @@ abstract class CommonITILObject extends CommonDBTM {
                   $observerToAdd[] = $observer;
                }
 
-               $input2['_from_object'] = true;
                $useractors->add($input2);
             }
          }
@@ -1563,9 +1593,10 @@ abstract class CommonITILObject extends CommonDBTM {
                   continue;
                }
 
-               $input2 = [$useractors->getItilObjectForeignKey() => $this->fields['id'],
-                              'users_id'                              => $assign,
-                              'type'                                  => CommonITILActor::ASSIGN];
+               $input2 = [
+                  'users_id' => $assign,
+                  'type'     => CommonITILActor::ASSIGN,
+               ] + $user_input;
 
                if (isset($this->input["_users_id_assign_notif"])) {
                   foreach ($this->input["_users_id_assign_notif"] as $key => $val) {
@@ -1584,13 +1615,18 @@ abstract class CommonITILObject extends CommonDBTM {
                   $assignToAdd[] = $assign;
                }
 
-               $input2['_from_object'] = true;
                $useractors->add($input2);
             }
          }
       }
 
       if (!is_null($groupactors)) {
+         $group_input = [
+            $groupactors->getItilObjectForeignKey() => $this->fields['id'],
+            '_do_not_compute_takeintoaccount'       => $do_not_compute_takeintoaccount,
+            '_from_object'                          => true,
+         ];
+
          if (isset($this->input["_groups_id_requester"])) {
             $groups_id_requester = $this->input["_groups_id_requester"];
             if (!is_array($this->input["_groups_id_requester"])) {
@@ -1600,11 +1636,12 @@ abstract class CommonITILObject extends CommonDBTM {
             }
             foreach ($groups_id_requester as $groups_id) {
                if ($groups_id > 0) {
-                  $groupactors->add([$groupactors->getItilObjectForeignKey()
-                        => $this->fields['id'],
-                        'groups_id'    => $groups_id,
-                        'type'         => CommonITILActor::REQUESTER,
-                        '_from_object' => true]);
+                  $groupactors->add(
+                     [
+                        'groups_id' => $groups_id,
+                        'type'      => CommonITILActor::REQUESTER,
+                     ] + $group_input
+                  );
                }
             }
          }
@@ -1617,11 +1654,12 @@ abstract class CommonITILObject extends CommonDBTM {
             }
             foreach ($groups_id_assign as $groups_id) {
                if ($groups_id > 0) {
-                  $groupactors->add([$groupactors->getItilObjectForeignKey()
-                        => $this->fields['id'],
-                        'groups_id'    => $groups_id,
-                        'type'         => CommonITILActor::ASSIGN,
-                        '_from_object' => true]);
+                  $groupactors->add(
+                     [
+                        'groups_id' => $groups_id,
+                        'type'      => CommonITILActor::ASSIGN,
+                     ] + $group_input
+                  );
                }
             }
          }
@@ -1634,17 +1672,24 @@ abstract class CommonITILObject extends CommonDBTM {
             }
             foreach ($groups_id_observer as $groups_id) {
                if ($groups_id > 0) {
-                  $groupactors->add([$groupactors->getItilObjectForeignKey()
-                                                         => $this->fields['id'],
-                                          'groups_id'    => $groups_id,
-                                          'type'         => CommonITILActor::OBSERVER,
-                                          '_from_object' => true]);
+                  $groupactors->add(
+                     [
+                        'groups_id' => $groups_id,
+                        'type'      => CommonITILActor::OBSERVER,
+                     ] + $group_input
+                  );
                }
             }
          }
       }
 
       if (!is_null($supplieractors)) {
+         $supplier_input = [
+            $supplieractors->getItilObjectForeignKey() => $this->fields['id'],
+            '_do_not_compute_takeintoaccount'          => $do_not_compute_takeintoaccount,
+            '_from_object'                             => true,
+         ];
+
          if (isset($this->input["_suppliers_id_assign"])
              && ($this->input["_suppliers_id_assign"] > 0)) {
 
@@ -1661,10 +1706,10 @@ abstract class CommonITILObject extends CommonDBTM {
                   // This assigned supplier ID is already added;
                   continue;
                }
-               $input3 = [$supplieractors->getItilObjectForeignKey()
-                                              => $this->fields['id'],
-                               'suppliers_id' => $assign,
-                               'type'         => CommonITILActor::ASSIGN];
+               $input3 = [
+                  'suppliers_id' => $assign,
+                  'type'         => CommonITILActor::ASSIGN,
+               ] + $supplier_input;
 
                if (isset($this->input["_suppliers_id_assign_notif"])) {
                   foreach ($this->input["_suppliers_id_assign_notif"] as $key => $val) {
@@ -1681,7 +1726,6 @@ abstract class CommonITILObject extends CommonDBTM {
                   $supplierToAdd[] = $assign;
                }
 
-               $input3['_from_object'] = true;
                $supplieractors->add($input3);
             }
          }
@@ -1713,21 +1757,29 @@ abstract class CommonITILObject extends CommonDBTM {
          $supplieractors = new $this->supplierlinkclass();
       }
 
+      // "do not compute" flag set by business rules for "takeintoaccount_delay_stat" field
+      $do_not_compute_takeintoaccount = $this->isTakeIntoAccountComputationBlocked($input);
+
       // Additional groups actors
       if (!is_null($groupactors)) {
+         $group_input = [
+            $groupactors->getItilObjectForeignKey() => $this->fields['id'],
+            '_do_not_compute_takeintoaccount'       => $do_not_compute_takeintoaccount,
+            '_from_object'                          => true,
+         ];
+
          // Requesters
          if (isset($input['_additional_groups_requesters'])
              && is_array($input['_additional_groups_requesters'])
              && count($input['_additional_groups_requesters'])) {
-
-            $input2 = [$groupactors->getItilObjectForeignKey() => $this->fields['id'],
-                            'type'                                  => CommonITILActor::REQUESTER];
-
             foreach ($input['_additional_groups_requesters'] as $tmp) {
                if ($tmp > 0) {
-                  $input2['groups_id']    = $tmp;
-                  $input2['_from_object'] = true;
-                  $groupactors->add($input2);
+                  $groupactors->add(
+                     [
+                        'type'      => CommonITILActor::REQUESTER,
+                        'groups_id' => $tmp,
+                     ] + $group_input
+                  );
                }
             }
          }
@@ -1736,15 +1788,14 @@ abstract class CommonITILObject extends CommonDBTM {
          if (isset($input['_additional_groups_observers'])
              && is_array($input['_additional_groups_observers'])
              && count($input['_additional_groups_observers'])) {
-
-            $input2 = [$groupactors->getItilObjectForeignKey() => $this->fields['id'],
-                            'type'                                  => CommonITILActor::OBSERVER];
-
             foreach ($input['_additional_groups_observers'] as $tmp) {
                if ($tmp > 0) {
-                  $input2['groups_id']    = $tmp;
-                  $input2['_from_object'] = true;
-                  $groupactors->add($input2);
+                  $groupactors->add(
+                     [
+                        'type'      => CommonITILActor::OBSERVER,
+                        'groups_id' => $tmp,
+                     ] + $group_input
+                  );
                }
             }
          }
@@ -1753,15 +1804,14 @@ abstract class CommonITILObject extends CommonDBTM {
          if (isset($input['_additional_groups_assigns'])
              && is_array($input['_additional_groups_assigns'])
              && count($input['_additional_groups_assigns'])) {
-
-            $input2 = [$groupactors->getItilObjectForeignKey() => $this->fields['id'],
-                            'type'                                  => CommonITILActor::ASSIGN];
-
             foreach ($input['_additional_groups_assigns'] as $tmp) {
                if ($tmp > 0) {
-                  $input2['groups_id']    = $tmp;
-                  $input2['_from_object'] = true;
-                  $groupactors->add($input2);
+                  $groupactors->add(
+                     [
+                        'type'      => CommonITILActor::ASSIGN,
+                        'groups_id' => $tmp,
+                     ] + $group_input
+                  );
                }
             }
          }
@@ -1769,16 +1819,20 @@ abstract class CommonITILObject extends CommonDBTM {
 
       // Additional suppliers actors
       if (!is_null($supplieractors)) {
+         $supplier_input = [
+            $supplieractors->getItilObjectForeignKey() => $this->fields['id'],
+            '_do_not_compute_takeintoaccount'          => $do_not_compute_takeintoaccount,
+            '_from_object'                             => true,
+         ];
+
          // Assigns
          if (isset($input['_additional_suppliers_assigns'])
              && is_array($input['_additional_suppliers_assigns'])
              && count($input['_additional_suppliers_assigns'])) {
 
             $input2 = [
-               $supplieractors->getItilObjectForeignKey() => $this->fields['id'],
-               'type'                                     => CommonITILActor::ASSIGN,
-               '_from_object'                             => true
-            ];
+               'type' => CommonITILActor::ASSIGN,
+            ] + $supplier_input;
 
             foreach ($input["_additional_suppliers_assigns"] as $tmp) {
                if (isset($tmp['suppliers_id'])) {
@@ -1793,14 +1847,20 @@ abstract class CommonITILObject extends CommonDBTM {
 
       // Additional actors : using default notification parameters
       if (!is_null($useractors)) {
+         $user_input = [
+            $useractors->getItilObjectForeignKey() => $this->fields['id'],
+            '_do_not_compute_takeintoaccount'      => $do_not_compute_takeintoaccount,
+            '_from_object'                         => true,
+         ];
+
          // Observers : for mailcollector
          if (isset($input["_additional_observers"])
              && is_array($input["_additional_observers"])
              && count($input["_additional_observers"])) {
 
-            $input2 = [$useractors->getItilObjectForeignKey() => $this->fields['id'],
-                            'type'                                 => CommonITILActor::OBSERVER,
-                            '_from_object'                         => true];
+            $input2 = [
+               'type' => CommonITILActor::OBSERVER,
+            ] + $user_input;
 
             foreach ($input["_additional_observers"] as $tmp) {
                if (isset($tmp['users_id'])) {
@@ -1816,9 +1876,9 @@ abstract class CommonITILObject extends CommonDBTM {
              && is_array($input["_additional_assigns"])
              && count($input["_additional_assigns"])) {
 
-            $input2 = [$useractors->getItilObjectForeignKey() => $this->fields['id'],
-                            'type'                                 => CommonITILActor::ASSIGN,
-                            '_from_object'                         => true];
+            $input2 = [
+               'type' => CommonITILActor::ASSIGN,
+            ] + $user_input;
 
             foreach ($input["_additional_assigns"] as $tmp) {
                if (isset($tmp['users_id'])) {
@@ -1832,9 +1892,10 @@ abstract class CommonITILObject extends CommonDBTM {
          if (isset($input["_additional_requesters"])
              && is_array($input["_additional_requesters"])
              && count($input["_additional_requesters"])) {
-            $input2 = [$useractors->getItilObjectForeignKey() => $this->fields['id'],
-                            'type'                                 => CommonITILActor::REQUESTER,
-                            '_from_object'                         => true];
+
+            $input2 = [
+               'type' => CommonITILActor::REQUESTER,
+            ] + $user_input;
 
             foreach ($input["_additional_requesters"] as $tmp) {
                if (isset($tmp['users_id'])) {
@@ -3268,7 +3329,7 @@ abstract class CommonITILObject extends CommonDBTM {
          'name'               => __('Watcher group'),
          'forcegroupby'       => true,
          'massiveaction'      => false,
-         'condition'          => 'is_requester',
+         'condition'          => 'is_watcher',
          'joinparams'         => [
             'beforejoin'         => [
                'table'              => getTableForItemType($this->grouplinkclass),
@@ -3639,6 +3700,7 @@ abstract class CommonITILObject extends CommonDBTM {
                    || ($d['users_id'] == Session::getLoginUserID())) {
                   $opt      = ['awesome-class' => 'fa-envelope',
                                     'popup' => $linkuser->getFormURLWithID($d['id'])];
+                  echo "&nbsp;";
                   Html::showToolTip($text, $opt);
                }
             }
@@ -6092,30 +6154,8 @@ abstract class CommonITILObject extends CommonDBTM {
                          array_merge($this->getSolvedStatusArray(), $this->getClosedStatusArray()));
       $canadd_solution = $objType::canUpdate() && $this->canSolve() && !in_array($this->fields["status"], $this->getSolvedStatusArray());
 
-      if (!$canadd_fup && !$canadd_task && !$canadd_document && !$canadd_solution && !$this->canReopen()) {
-         return false;
-      }
-
       // javascript function for add and edit items
-      echo "<script type='text/javascript' >\n";
-      echo "function viewAddSubitem" . $this->fields['id'] . "$rand(itemtype) {\n";
-      $params = ['action'     => 'viewsubitem',
-                      'type'       => 'itemtype',
-                      'parenttype' => $objType,
-                      $foreignKey => $this->fields['id'],
-                      'id'         => -1];
-      if (isset($_GET['load_kb_sol'])) {
-         $params['load_kb_sol'] = $_GET['load_kb_sol'];
-      }
-      $out = Ajax::updateItemJsCode("viewitem" . $this->fields['id'] . "$rand",
-                                    $CFG_GLPI["root_doc"]."/ajax/timeline.php",
-                                    $params, "", false);
-      echo str_replace("\"itemtype\"", "itemtype", $out);
-      echo "$('#approbation_form$rand').remove()";
-      echo "};";
-
-      echo "
-
+      echo "<script type='text/javascript' >
       function change_task_state(tasks_id, target) {
          $.post('".$CFG_GLPI["root_doc"]."/ajax/timeline.php',
                 {'action':     'change_task_state',
@@ -6157,7 +6197,29 @@ abstract class CommonITILObject extends CommonDBTM {
                                                         '$foreignKey': ".$this->fields['id'].",
                                                         'id'        : items_id
                                                        });
-      };";
+      };
+      </script>";
+
+      if (!$canadd_fup && !$canadd_task && !$canadd_document && !$canadd_solution && !$this->canReopen()) {
+         return false;
+      }
+
+      echo "<script type='text/javascript' >\n";
+      echo "function viewAddSubitem" . $this->fields['id'] . "$rand(itemtype) {\n";
+      $params = ['action'     => 'viewsubitem',
+                      'type'       => 'itemtype',
+                      'parenttype' => $objType,
+                      $foreignKey => $this->fields['id'],
+                      'id'         => -1];
+      if (isset($_GET['load_kb_sol'])) {
+         $params['load_kb_sol'] = $_GET['load_kb_sol'];
+      }
+      $out = Ajax::updateItemJsCode("viewitem" . $this->fields['id'] . "$rand",
+                                    $CFG_GLPI["root_doc"]."/ajax/timeline.php",
+                                    $params, "", false);
+      echo str_replace("\"itemtype\"", "itemtype", $out);
+      echo "$('#approbation_form$rand').remove()";
+      echo "};";
 
       if (isset($_GET['load_kb_sol'])) {
          echo "viewAddSubitem" . $this->fields['id'] . "$rand('Solution');";
@@ -6248,7 +6310,7 @@ abstract class CommonITILObject extends CommonDBTM {
       $restrict_fup['itemtype'] = self::getType();
       $restrict_fup['items_id'] = $this->getID();
 
-      if (!Session::haveRight("task", CommonITILTask::SEEPRIVATE)) {
+      if ($task_obj->maybePrivate() && !Session::haveRight("task", CommonITILTask::SEEPRIVATE)) {
          $restrict_task = [
             'OR' => [
                'is_private'   => 0,
@@ -6535,9 +6597,11 @@ abstract class CommonITILObject extends CommonDBTM {
             echo "<span class='cancel_edit_item_content'></span>";
          }
          echo "<div class='displayed_content'>";
+         echo "<div class='h_controls'>";
          if (!in_array($item['type'], ['Document_Item', 'Assign'])
-             && $item_i['can_edit']) {
-            echo "<div class='h_controls'>";
+            && $item_i['can_edit']
+            && !in_array($this->fields['status'], $this->getClosedStatusArray())
+         ) {
             // merge/split icon
             if ($objType == 'Ticket' && $item['type'] == ITILFollowup::getType()) {
                if (isset($item_i['sourceof_items_id']) && $item_i['sourceof_items_id'] > 0) {
@@ -6556,15 +6620,15 @@ abstract class CommonITILObject extends CommonDBTM {
             echo "<span class='far fa-edit control_item' title='".__('Edit')."'";
             echo "onclick='javascript:viewEditSubitem".$this->fields['id']."$rand(event, \"".$item['type']."\", ".$item_i['id'].", this, \"$randdomid\")'";
             echo "></span>";
-
-            // show "is_private" icon
-            if (isset($item_i['is_private']) && $item_i['is_private']) {
-               echo "<span class='private'><i class='fas fa-lock control_item' title='" . __s('Private') .
-                  "'></i><span class='sr-only'>".__('Private')."</span></span>";
-            }
-
-            echo "</div>";
          }
+
+         // show "is_private" icon
+         if (isset($item_i['is_private']) && $item_i['is_private']) {
+            echo "<span class='private'><i class='fas fa-lock control_item' title='" . __s('Private') .
+               "'></i><span class='sr-only'>".__('Private')."</span></span>";
+         }
+
+         echo "</div>";
          if (isset($item_i['requesttypes_id'])
              && file_exists("$pics_url/".$item_i['requesttypes_id'].".png")) {
             echo "<img src='$pics_url/".$item_i['requesttypes_id'].".png' class='h_requesttype' />";
@@ -6764,17 +6828,28 @@ abstract class CommonITILObject extends CommonDBTM {
       echo "<div class='h_date'><i class='far fa-clock'></i>".Html::convDateTime($this->fields['date'])."</div>";
       echo "<div class='h_user'>";
 
-      $user->getFromDB($this->fields['users_id_recipient']);
+      $user = new User();
+      $display_requester = false;
+      $requesters = $this->getUsers(CommonITILActor::REQUESTER);
+      if (count($requesters) === 1) {
+         $requester = reset($requesters);
+         if ($requester['users_id'] > 0) {
+            // Display requester identity only if there is only one requester
+            // and only if it is not an anonymous user
+            $display_requester = $user->getFromDB($requester['users_id']);
+         }
+      }
+
       echo "<div class='tooltip_picture_border'>";
       $picture = "";
-      if (isset($user->fields['picture'])) {
+      if ($display_requester && isset($user->fields['picture'])) {
          $picture = $user->fields['picture'];
       }
       echo "<img class='user_picture' alt=\"".__s('Picture')."\" src='".
       User::getThumbnailURLForPicture($picture)."'>";
       echo "</div>";
 
-      if (isset($user->fields['id']) && $user->fields['id']) {
+      if ($display_requester) {
          echo $user->getLink()."&nbsp;";
          $reqdata = getUserName($user->getID(), 2);
          echo Html::showToolTip(
@@ -6782,7 +6857,7 @@ abstract class CommonITILObject extends CommonDBTM {
             ['link' => $reqdata['link']]
          );
       } else {
-         echo __('Requester');
+         echo _n('Requester', 'Requesters', count($requesters));
       }
 
       echo "</div>"; // h_user
@@ -6998,4 +7073,28 @@ abstract class CommonITILObject extends CommonDBTM {
       return (int)$row['cpt'];
    }
 
+   /**
+    * Check if input contains a flag set to prevent 'takeintoaccount' delay computation.
+    *
+    * @param array $input
+    *
+    * @return boolean
+    */
+   public function isTakeIntoAccountComputationBlocked($input) {
+      return array_key_exists('_do_not_compute_takeintoaccount', $input)
+         && $input['_do_not_compute_takeintoaccount'];
+   }
+
+   /**
+    * Check if input contains a flag set to prevent status computation.
+    *
+    * @param array $input
+    *
+    * @return boolean
+    */
+   public function isStatusComputationBlocked(array $input) {
+
+      return array_key_exists('_do_not_compute_status', $input)
+         && $input['_do_not_compute_status'];
+   }
 }

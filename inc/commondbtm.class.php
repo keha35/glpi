@@ -3664,7 +3664,8 @@ class CommonDBTM extends CommonGLPI {
          'field'         => 'name',
          'name'          => __('Name'),
          'datatype'      => 'itemlink',
-         'massiveaction' => false
+         'massiveaction' => false,
+         'autocomplete'  => true,
       ];
 
       if ($this->maybeRecursive()) {
@@ -4348,6 +4349,14 @@ class CommonDBTM extends CommonGLPI {
     * @return string the string to display
    **/
    static function getSpecificValueToDisplay($field, $values, array $options = []) {
+
+      switch ($field) {
+         case '_virtual_datacenter_position':
+            if (method_exists(static::class, 'getDcBreadcrumbSpecificValueToDisplay')) {
+               return static::getDcBreadcrumbSpecificValueToDisplay($values['id']);
+            }
+      }
+
       return '';
    }
 

@@ -96,7 +96,8 @@ class Datacenter extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false // implicit key==1
+         'massiveaction'      => false, // implicit key==1
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -137,6 +138,29 @@ class Datacenter extends CommonDBTM {
       ];
 
       return $tab;
+   }
+
+
+   static public function rawSearchOptionsToAdd($itemtype) {
+      return [
+         [
+            'id'                 => 'datacenter',
+            'name'               => _n('Data center', 'Data centers', Session::getPluralNumber())
+         ],
+         [
+            'id'                 => '175',
+            'table'              => $itemtype::getTable(),
+            'field'              => '_virtual_datacenter_position', // virtual field
+            'additionalfields'   => [
+               'id',
+               'name'
+            ],
+            'name'               => __('Data center position'),
+            'datatype'           => 'specific',
+            'nosearch'           => true,
+            'massiveaction'      => false
+         ],
+      ];
    }
 
    static function getAdditionalMenuLinks() {

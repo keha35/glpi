@@ -3,7 +3,26 @@
 The present file will list all changes made to the project; according to the
 [Keep a Changelog](http://keepachangelog.com/) project.
 
-## [9.4.2] unreleased
+## [9.4.5] unreleased
+
+## [9.4.4] 2019-09-24
+
+### API changes
+
+#### Changes
+- For security reasons, autocompletion feature requires now to be authorized by a `'autocomplete' => true` flag in corresponding field search option.
+
+## [9.4.3] 2019-06-20
+
+### API changes
+
+#### Deprecated
+
+The following methods have been deprecated:
+
+- `Html::convertTagFromRichTextToImageTag()`
+
+## [9.4.2] 2019-04-11
 
 ### API changes
 

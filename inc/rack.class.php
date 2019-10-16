@@ -349,7 +349,8 @@ class Rack extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false // implicit key==1
+         'massiveaction'      => false, // implicit key==1
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -393,7 +394,8 @@ class Rack extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'serial',
          'name'               => __('Serial number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -401,7 +403,8 @@ class Rack extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'otherserial',
          'name'               => __('Inventory number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -475,6 +478,18 @@ class Rack extends CommonDBTM {
       ];
 
       $tab[] = [
+         'id'                 => '50',
+         'table'              => $this->getTable(),
+         'field'              => 'template_name',
+         'name'               => __('Template name'),
+         'datatype'           => 'text',
+         'massiveaction'      => false,
+         'nosearch'           => true,
+         'nodisplay'          => true,
+         'autocomplete'       => true,
+      ];
+
+      $tab[] = [
          'id'                 => '80',
          'table'              => 'glpi_entities',
          'field'              => 'completename',
@@ -483,6 +498,8 @@ class Rack extends CommonDBTM {
       ];
 
       $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
+
+      $tab = array_merge($tab, Datacenter::rawSearchOptionsToAdd(get_class($this)));
 
       return $tab;
    }
@@ -694,9 +711,14 @@ class Rack extends CommonDBTM {
             <div class='sep'></div>
          </span>
          <ul class='indexes indexes-x'></ul>
-         <ul class='indexes indexes-y'></ul>
-         <div class='racks_add' style='width: ".$grid_w."px'></div>
-         <div class='grid-stack grid-stack-$cols' style='width: ".$grid_w."px'>";
+         <ul class='indexes indexes-y'></ul>";
+
+      $dcroom = new DCRoom();
+      if ($dcroom->canCreate()) {
+         echo "<div class='racks_add' style='width: ".$grid_w."px'></div>";
+      }
+
+      echo "<div class='grid-stack grid-stack-$cols' style='width: ".$grid_w."px'>";
 
       foreach ($cells as $cell) {
          if ($rack->getFromDB($cell['id'])) {

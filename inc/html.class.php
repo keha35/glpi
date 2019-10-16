@@ -86,10 +86,12 @@ class Html {
          $value,
          [
             'elements'         => ($striptags) ? 'none' : '',
+            'deny_attribute'   => 'on*',
             'keep_bad'         => $keep_bad, // 1: neutralize tag and content, 2 : remove tag and neutralize content
             'comment'          => 1, // 1: remove
             'cdata'            => 1, // 1: remove
             'direct_list_nest' => 1, // 1: Allow usage of ul/ol tags nested in other ul/ol tags
+            'schemes'          => '*: aim, app, feed, file, ftp, gopher, http, https, irc, mailto, news, nntp, sftp, ssh, tel, telnet'
          ]
       );
 
@@ -138,7 +140,7 @@ class Html {
    **/
    static function convDate($time, $format = null) {
 
-      if (is_null($time) || $time == 'NULL' || trim($time) == '') {
+      if (is_null($time) || trim($time) == '' || in_array($time, ['NULL', '0000-00-00', '0000-00-00 00:00:00'])) {
          return null;
       }
 
@@ -425,6 +427,34 @@ class Html {
 
 
    /**
+    * Format a timestamp into a normalized string (hh:mm:ss).
+    *
+    * @param integer $time
+    *
+    * @return string
+   **/
+   static function timestampToCsvString($time) {
+
+      if ($time < 0) {
+         $time = abs($time);
+      }
+      $time = floor($time);
+
+      $units = Toolbox::getTimestampTimeUnits($time);
+
+      if ($units['day'] > 0) {
+         $units['hour'] += 24*$units['day'];
+      }
+
+      return str_pad($units['hour'], 2, '0', STR_PAD_LEFT)
+         . ':'
+         . str_pad($units['minute'], 2, '0', STR_PAD_LEFT)
+         . ':'
+         . str_pad($units['second'], 2, '0', STR_PAD_LEFT);
+   }
+
+
+   /**
     * Extract url from web link
     *
     * @param $value string value
@@ -495,7 +525,11 @@ class Html {
       global $CFG_GLPI;
 
       $dest     = $CFG_GLPI["root_doc"] . "/index.php";
-      $url_dest = str_replace($CFG_GLPI["root_doc"], '', $_SERVER['REQUEST_URI']);
+      $url_dest = preg_replace(
+         '/^' . preg_quote($CFG_GLPI["root_doc"], '/') . '/',
+         '',
+         $_SERVER['REQUEST_URI']
+      );
       $dest    .= "?redirect=".rawurlencode($url_dest);
 
       if (!empty($params)) {
@@ -1629,12 +1663,6 @@ class Html {
       echo "<td class='right'>" . self::getCopyrightMessage() . "</td>";
       echo "</tr></table></div>";
 
-      if ($_SESSION['glpi_use_mode'] == Session::TRANSLATION_MODE) { // debug mode traduction
-         echo "<div id='debug-float'>";
-         echo "<a href='#see_debug'>GLPI TRANSLATION MODE</a>";
-         echo "</div>";
-      }
-
       if ($CFG_GLPI['maintenance_mode']) { // mode maintenance
          echo "<div id='maintenance-float'>";
          echo "<a href='#see_maintenance'>GLPI MAINTENANCE MODE</a>";
@@ -1795,7 +1823,7 @@ class Html {
     * Print footer for help page
    **/
    static function helpFooter() {
-      global $CFG_GLPI, $FOOTER_LOADED;
+      global $FOOTER_LOADED;
 
       // Print foot for help page
       if ($FOOTER_LOADED) {
@@ -1809,17 +1837,6 @@ class Html {
       echo "<table width='100%'><tr><td class='right'>" . self::getCopyrightMessage();
       echo "</td></tr></table></div>";
 
-      if ($_SESSION['glpi_use_mode'] == Session::TRANSLATION_MODE) { // debug mode traduction
-         echo "<div id='debug-float'>";
-         echo "<a href='#see_debug'>GLPI TRANSLATION MODE</a>";
-         echo "</div>";
-      }
-
-      if ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE) { // mode debug
-         echo "<div id='debug-float'>";
-         echo "<a href='#see_debug'>GLPI DEBUG MODE</a>";
-         echo "</div>";
-      }
       self::displayDebugInfos();
       echo "</body></html>";
       self::loadJavascript();
@@ -2835,7 +2852,7 @@ class Html {
       $js .= "$( '#showdate".$p['rand']."' ).datetimepicker({
                   altField: '#hiddendate".$p['rand']."',
                   altFormat: 'yy-mm-dd',
-                  altTimeFormat: 'HH:mm',
+                  altTimeFormat: 'HH:mm:ss',
                   pickerTimeFormat : 'HH:mm',
                   altFieldTimeOnly: false,
                   firstDay: 1,
@@ -3480,8 +3497,12 @@ class Html {
       $rand = (isset($params['rand']) ? $params['rand'] : mt_rand());
       $name    = "field_".$params['name'].$rand;
 
+      // Check if field is allowed
+      $field_so = $item->getSearchOptionByField('field', $field, $item->getTable());
+      $can_autocomplete = true || array_key_exists('autocomplete', $field_so) && $field_so['autocomplete'];
+
       $output = '';
-      if ($CFG_GLPI["use_ajax_autocompletion"]) {
+      if ($can_autocomplete && $CFG_GLPI["use_ajax_autocompletion"]) {
          $output .=  "<input ".$params['option']." id='text$name' type='{$params['type']}' name='".
                        $params['name']."' value=\"".self::cleanInputText($params['value'])."\"
                        class='autocompletion-text-field'";
@@ -5695,17 +5716,21 @@ class Html {
    /**
     * Convert tag to image
     *
-    * @since 9.2
-    *
     * @param string|array $tag       the tag identifier of the document
     * @param int          $width     witdh of the final image
     * @param int          $height    height of the final image
     * @param bool         $addLink   boolean, do we need to add an anchor link
     * @param string       $more_link append to the link (ex &test=true)
     *
-    * @return nothing
+    * @return string
+    *
+    * @since 9.2
+    * @deprecated 9.4.3
    **/
    public static function convertTagFromRichTextToImageTag($tag, $width, $height, $addLink = true, $more_link = "") {
+
+      Toolbox::deprecated('Use getImageHtmlTagForDocument');
+
       global $CFG_GLPI;
 
       $doc = new Document();
@@ -5750,6 +5775,67 @@ class Html {
          return $out;
       }
       return '#'.$tag.'#';
+   }
+
+
+   /**
+    * Get image html tag for image document.
+    *
+    * @param int    $document_id  identifier of the document
+    * @param int    $width        witdh of the final image
+    * @param int    $height       height of the final image
+    * @param bool   $addLink      boolean, do we need to add an anchor link
+    * @param string $more_link    append to the link (ex &test=true)
+    *
+    * @return string
+    *
+    * @since 9.4.3
+   **/
+   public static function getImageHtmlTagForDocument($document_id, $width, $height, $addLink = true, $more_link = "") {
+      global $CFG_GLPI;
+
+      $document = new Document();
+      if (!$document->getFromDB($document_id)) {
+         return '';
+      }
+
+      $base_path = $CFG_GLPI['root_doc'];
+      if (isCommandLine()) {
+         $base_path = parse_url($CFG_GLPI['url_base'], PHP_URL_PATH);
+      }
+
+      // Add only image files : try to detect mime type
+      $ok   = false;
+      $mime = '';
+      if (isset($document->fields['filepath'])) {
+         $fullpath = GLPI_DOC_DIR."/".$document->fields['filepath'];
+         $mime = Toolbox::getMime($fullpath);
+         $ok   = Toolbox::getMime($fullpath, 'image');
+      }
+
+      if (!($ok || empty($mime))) {
+         return '';
+      }
+
+      $out = '';
+      if ($addLink) {
+         $out .= '<a '
+                 . 'href="' . $base_path . '/front/document.send.php?docid=' . $document_id . $more_link . '" '
+                 . 'target="_blank" '
+                 . '>';
+      }
+      $out .= '<img ';
+      if (isset($document->fields['tag'])) {
+         $out .= 'alt="' . $document->fields['tag'] . '" ';
+      }
+      $out .= 'width="' . $width . '" '
+              . 'src="' . $base_path . '/front/document.send.php?docid=' . $document_id . $more_link . '" '
+              . '/>';
+      if ($addLink) {
+         $out .= '</a>';
+      }
+
+      return $out;
    }
 
    /**

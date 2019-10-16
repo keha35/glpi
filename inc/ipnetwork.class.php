@@ -92,7 +92,8 @@ class IPNetwork extends CommonImplicitTreeDropdown {
          'field'              => 'gateway',
          'name'               => __('Gateway'),
          'massiveaction'      => false,
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [

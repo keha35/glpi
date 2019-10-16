@@ -117,7 +117,7 @@ class ITILFollowup  extends CommonDBChild {
           && Session::haveRight(self::$rightname, self::SEEPUBLIC)) {
          return true;
       }
-      if ($itilobject == "Ticket") {
+      if ($itilobject instanceof Ticket) {
          if ($this->fields["users_id"] === Session::getLoginUserID()) {
             return true;
          }
@@ -1072,5 +1072,82 @@ class ITILFollowup  extends CommonDBChild {
             }
       }
       parent::processMassiveActionsForOneItemtype($ma, $item, $ids);
+   }
+
+   /**
+    * Build parent condition for ITILFollowup, used in addDefaultWhere
+    *
+    * @param string $itemtype
+    * @param string $target
+    * @param string $user_table
+    * @param string $group_table keys
+    *
+    * @return string
+    *
+    * @throws InvalidArgumentException
+    */
+   public static function buildParentCondition(
+      $itemtype,
+      $target = "",
+      $user_table = "",
+      $group_table = ""
+   ) {
+      // An ITILFollowup parent can only by a CommonItilObject
+      if (!is_a($itemtype, "CommonITILObject", true)) {
+         throw new InvalidArgumentException(
+            "'$itemtype' is not a CommonITILObject"
+         );
+      }
+
+      // Can see all items, no need to go further
+      if (Session::haveRight($itemtype, $itemtype::READALL)) {
+         return "(`itemtype` = '$itemtype') ";
+      }
+
+      $user   = Session::getLoginUserID();
+      $groups = "'" . implode("','", $_SESSION['glpigroups']) . "'";
+      $table = getTableNameForForeignKeyField(
+         getForeignKeyFieldForItemType($itemtype)
+      );
+
+      // Avoid empty IN ()
+      if ($groups == "''") {
+         $groups = '-1';
+      }
+
+      // We need to do some specific checks for tickets
+      if ($itemtype == "Ticket") {
+         // Default condition
+         $condition = "(`itemtype` = '$itemtype' AND (0 = 1 ";
+         return $condition . Ticket::buildCanViewCondition("items_id") . ")) ";
+      } else {
+         if (Session::haveRight($itemtype, $itemtype::READMY)) {
+            // Subquery for affected/assigned/observer user
+            $user_query = "SELECT `$target`
+               FROM `$user_table`
+               WHERE `users_id` = '$user'";
+
+            // Subquery for affected/assigned/observer group
+            $group_query = "SELECT `$target`
+               FROM `$group_table`
+               WHERE `groups_id` IN ($groups)";
+
+            // Subquery for recipient
+            $recipient_query = "SELECT `id`
+               FROM `$table`
+               WHERE `users_id_recipient` = '$user'";
+
+            return "(
+               `itemtype` = '$itemtype' AND (
+                  `items_id` IN ($user_query) OR
+                  `items_id` IN ($group_query) OR
+                  `items_id` IN ($recipient_query)
+               )
+            ) ";
+         } else {
+            // Can't see any items
+            return "(`itemtype` = '$itemtype' AND 0 = 1) ";
+         }
+      }
    }
 }

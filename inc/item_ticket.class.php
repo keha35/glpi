@@ -387,7 +387,9 @@ class Item_Ticket extends CommonDBRelation{
       $types_iterator = self::getDistinctTypes($instID);
       $number = count($types_iterator);
 
-      if ($canedit) {
+      if ($canedit
+          && !in_array($ticket->fields['status'], array_merge($ticket->getClosedStatusArray(),
+                                                              $ticket->getSolvedStatusArray()))) {
          echo "<div class='firstbloc'>";
          echo "<form name='ticketitem_form$rand' id='ticketitem_form$rand' method='post'
                 action='".Toolbox::getItemTypeFormURL(__CLASS__)."'>";
@@ -411,14 +413,7 @@ class Item_Ticket extends CommonDBRelation{
             self::dropdownMyDevices($dev_user_id, $ticket->fields["entities_id"], null, 0, ['tickets_id' => $instID]);
          }
 
-         $data =  array_keys(getAllDatasFromTable('glpi_items_tickets'));
-         $used = [];
-         if (!empty($data)) {
-            foreach ($data as $val) {
-               $used[$val['itemtype']] = $val['id'];
-            }
-         }
-
+         $used = self::getUsedItems($instID);
          self::dropdownAllDevices("itemtype", null, 0, 1, $dev_user_id, $ticket->fields["entities_id"], ['tickets_id' => $instID, 'used' => $used, 'rand' => $rand]);
          echo "<span id='item_ticket_selection_information$rand'></span>";
          echo "</td><td class='center' width='30%'>";

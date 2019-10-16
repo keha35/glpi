@@ -134,7 +134,7 @@ class Search {
          array_pop($criteria);
          $criteria[] = [
             'link'         => 'AND',
-            'field'        => ($itemtype == 'Location') ? 1 : ($itemtype == 'Ticket') ? 83 : 3,
+            'field'        => ($itemtype == 'Location') ? 1 : (($itemtype == 'Ticket') ? 83 : 3),
             'searchtype'   => 'equals',
             'value'        => 'CURLOCATION'
          ];
@@ -445,27 +445,27 @@ class Search {
             foreach ($criteria as $criterion) {
                // recursive call
                if (isset($criterion['criteria'])) {
-                  return $parse_criteria($criterion['criteria']);
-               }
-
-               // normal behavior
-               if (isset($criterion['field'])
-                   && !in_array($criterion['field'], $data['toview'])) {
-                  if ($criterion['field'] != 'all'
-                      && $criterion['field'] != 'view'
-                      && (!isset($criterion['meta'])
-                          || !$criterion['meta'])) {
-                     array_push($data['toview'], $criterion['field']);
-                  } else if ($criterion['field'] == 'all') {
-                     $data['search']['all_search'] = true;
-                  } else if ($criterion['field'] == 'view') {
-                     $data['search']['view_search'] = true;
+                  $parse_criteria($criterion['criteria']);
+               } else {
+                  // normal behavior
+                  if (isset($criterion['field'])
+                     && !in_array($criterion['field'], $data['toview'])) {
+                     if ($criterion['field'] != 'all'
+                        && $criterion['field'] != 'view'
+                        && (!isset($criterion['meta'])
+                           || !$criterion['meta'])) {
+                        array_push($data['toview'], $criterion['field']);
+                     } else if ($criterion['field'] == 'all') {
+                        $data['search']['all_search'] = true;
+                     } else if ($criterion['field'] == 'view') {
+                        $data['search']['view_search'] = true;
+                     }
                   }
-               }
 
-               if (isset($criterion['value'])
-                   && (strlen($criterion['value']) > 0)) {
-                  $data['search']['no_search'] = false;
+                  if (isset($criterion['value'])
+                     && (strlen($criterion['value']) > 0)) {
+                     $data['search']['no_search'] = false;
+                  }
                }
             }
          };
@@ -509,6 +509,36 @@ class Search {
       }
 
       return $data;
+   }
+
+   /**
+    * Search for a "usehaving" field in the searchOption of for each criteria
+    *
+    * @param $criterias List of criterias
+    * @param $searchopt List of searchOptions
+    *
+    * @return bool
+    */
+   private static function hasHaving($criterias, $searchopt) {
+      foreach ($criterias as $criteria) {
+         // Search recursively for groups
+         if (isset($criteria['criteria'])) {
+            $hasHaving = self::hasHaving($criteria['criteria'], $searchopt);
+            if ($hasHaving) {
+               return true;
+            }
+            continue;
+         }
+
+         if (isset($criteria['field'])
+            && isset($searchopt[$criteria['field']]["usehaving"])
+            || (isset($criteria['meta']) && $criteria['meta'] && $criteria['link'] == "AND NOT")
+         ) {
+            return true;
+         }
+      }
+
+      return false;
    }
 
 
@@ -663,6 +693,25 @@ class Search {
       if (count($data['search']['criteria'])) {
          $WHERE  = self::constructCriteriaSQL($data['search']['criteria'], $data, $searchopt);
          $HAVING = self::constructCriteriaSQL($data['search']['criteria'], $data, $searchopt, true);
+
+         // Check if a criteria was meant to be used as a having field
+         $hasHaving = self::hasHaving($data['search']['criteria'], $searchopt);
+         if ($hasHaving) {
+            $HAVING = $WHERE;
+            $WHERE = "";
+
+            // Each field specified in the HAVING must be in the SELECT aswell
+            $regex = "/`glpi_\w*?`\.`.*?`/";
+            $matches = [];
+            preg_match_all($regex, $HAVING, $matches);
+            if (isset($matches[0])) {
+               foreach ($matches[0] as $havingElement) {
+                  if (strpos($SELECT, $havingElement) === false) {
+                     $SELECT .= " $havingElement, ";
+                  }
+               }
+            }
+         }
 
          // if criteria (with meta flag) need additional join/from sql
          self::constructAdditionalSqlForMetacriteria($data['search']['criteria'], $SELECT, $FROM, $already_link_tables, $data);
@@ -978,20 +1027,27 @@ class Search {
             if (isset($criterion['criteria']) && count($criterion['criteria'])) {
                $sub_sql = self::constructCriteriaSQL($criterion['criteria'], $data, $searchopt, $is_having);
                if (strlen($sub_sql)) {
-                  $sql .= "$LINK ($sub_sql)";
+                  if ($NOT) {
+                     $sql .= "$LINK NOT($sub_sql)";
+                  } else {
+                     $sql .= "$LINK ($sub_sql)";
+                  }
                }
             } else if (isset($searchopt[$criterion['field']]["usehaving"])
                        || ($meta && "AND NOT" === $criterion['link'])) {
                if (!$is_having) {
-                  // the having part will be managed in a second pass
+                  // Add the having in the where as the whole WHERE will be
+                  // converted into an HAVING later
+                  $new_where = self::addHaving(
+                     $LINK,
+                     $NOT,
+                     $itemtype,
+                     $criterion['field'],
+                     $criterion['searchtype'],
+                     $criterion['value']
+                  );
+                  $sql .= $new_where;
                   continue;
-               }
-
-               $new_having = self::addHaving($LINK, $NOT, $itemtype,
-                                             $criterion['field'], $criterion['searchtype'],
-                                             $criterion['value']);
-               if ($new_having !== false) {
-                  $sql .= $new_having;
                }
             } else {
                if ($is_having) {
@@ -1136,7 +1192,6 @@ class Search {
          if (!in_array(getTableForItemType($m_itemtype), $already_link_tables)) {
             $FROM .= self::addMetaLeftJoin($data['itemtype'], $m_itemtype,
                                            $already_link_tables,
-                                           $criterion['value'] == "NULL" || strstr($criterion['link'], "NOT"),
                                            $sopt["joinparams"]);
          }
 
@@ -1936,14 +1991,6 @@ class Search {
                   $gdname    = '';
                   $valuename = '';
 
-                  if (isset($criteria['meta']) && $criteria['meta']) {
-                     $searchoptname = sprintf(__('%1$s / %2$s'),
-                                    $criteria['itemtype'],
-                                    $searchopt[$criteria['field']]["name"]);
-                  } else {
-                     $searchoptname = $searchopt[$criteria['field']]["name"];
-                  }
-
                   switch ($criteria['field']) {
                      case "all" :
                         $titlecontain = sprintf(__('%1$s %2$s'), $titlecontain, __('All'));
@@ -1954,6 +2001,14 @@ class Search {
                         break;
 
                      default :
+                        if (isset($criteria['meta']) && $criteria['meta']) {
+                           $searchoptname = sprintf(__('%1$s / %2$s'),
+                                          $criteria['itemtype'],
+                                          $searchopt[$criteria['field']]["name"]);
+                        } else {
+                           $searchoptname = $searchopt[$criteria['field']]["name"];
+                        }
+
                         $titlecontain = sprintf(__('%1$s %2$s'), $titlecontain, $searchoptname);
                         $itemtype     = getItemTypeForTable($searchopt[$criteria['field']]["table"]);
                         $valuename    = '';
@@ -3116,7 +3171,7 @@ JAVASCRIPT;
       }
 
       if ($searchtype == "notcontains") {
-         $nott = !$nott;
+         $NOT = !$NOT;
       }
 
       return self::makeTextCriteria("`$NAME`", $val, $NOT, $LINK);
@@ -3355,7 +3410,7 @@ JAVASCRIPT;
             && (!isset($CFG_GLPI["union_search_type"][$itemtype])
                 || ($CFG_GLPI["union_search_type"][$itemtype] != $table)))
            || !empty($complexjoin))
-          && ($searchopt[$ID]["linkfield"] != getForeignKeyFieldForTable($table))) {
+          && getTableNameForForeignKeyField($searchopt[$ID]["linkfield"]) != $table) {
          $addtable .= "_".$searchopt[$ID]["linkfield"];
       }
 
@@ -3552,6 +3607,19 @@ JAVASCRIPT;
                                     AS `".$NAME."`,
                         $ADDITONALFIELDS";
             }
+            break;
+
+         case "glpi_itilfollowups.content":
+         case "glpi_tickettasks.content":
+         case "glpi_changetasks.content":
+               // force ordering by date desc
+               return " GROUP_CONCAT(DISTINCT CONCAT(IFNULL($tocompute, '".self::NULLVALUE."'),
+                                               '".self::SHORTSEP."',$tocomputeid)
+                                     ORDER BY `$table$addtable`.`date` DESC
+                                     SEPARATOR '".self::LONGSEP."')
+                                    AS `".$NAME."`,
+
+                       $ADDITONALFIELDS";
             break;
 
          default:
@@ -3873,6 +3941,79 @@ JAVASCRIPT;
             $condition = SavedSearch::addVisibilityRestrict();
             break;
 
+         case 'TicketTask':
+            // Filter on is_private
+            $allowed_is_private = [];
+            if (Session::haveRight(TicketTask::$rightname, CommonITILTask::SEEPRIVATE)) {
+               $allowed_is_private[] = 1;
+            }
+            if (Session::haveRight(TicketTask::$rightname, CommonITILTask::SEEPUBLIC)) {
+               $allowed_is_private[] = 0;
+            }
+
+            // If the user can't see public and private
+            if (!count($allowed_is_private)) {
+               $condition = "0 = 1";
+               break;
+            }
+
+            $in = "IN ('" . implode("','", $allowed_is_private) . "')";
+            $condition = "(`glpi_tickettasks`.`is_private` $in ";
+
+            // Check for assigned or created tasks
+            $condition .= "OR `users_id` = " . Session::getLoginUserID() . " ";
+            $condition .= "OR `users_id_tech` = " . Session::getLoginUserID() . " ";
+
+            // Check for parent item visibility
+            $condition .= "AND " . TicketTask::buildParentCondition() . ")";
+            break;
+
+         case 'ITILFollowup':
+            // Filter on is_private
+            $allowed_is_private = [];
+            if (Session::haveRight(ITILFollowup::$rightname, ITILFollowup::SEEPRIVATE)) {
+               $allowed_is_private[] = 1;
+            }
+            if (Session::haveRight(ITILFollowup::$rightname, ITILFollowup::SEEPUBLIC)) {
+               $allowed_is_private[] = 0;
+            }
+
+            // If the user can't see public and private
+            if (!count($allowed_is_private)) {
+               $condition = "0 = 1";
+               break;
+            }
+
+            $in = "IN ('" . implode("','", $allowed_is_private) . "')";
+            $condition = "(`glpi_itilfollowups`.`is_private` $in ";
+
+            // Now filter on parent item visiblity
+            $condition .= "AND (";
+
+            // Filter for "ticket" parents
+            $condition .= ITILFollowup::buildParentCondition("Ticket");
+            $condition .= "OR ";
+
+            // Filter for "change" parents
+            $condition .= ITILFollowup::buildParentCondition(
+               "Change",
+               'changes_id',
+               "glpi_changes_users",
+               "glpi_changes_groups"
+            );
+            $condition .= "OR ";
+
+            // Fitler for "problem" parents
+            $condition .= ITILFollowup::buildParentCondition(
+               "Problem",
+               'problems_id',
+               "glpi_problems_users",
+               "glpi_groups_problems"
+            );
+            $condition .= "))";
+
+            break;
+
          default :
             // Plugin can override core definition for its type
             if ($plug = isPluginItemType($itemtype)) {
@@ -3887,7 +4028,6 @@ JAVASCRIPT;
       list($itemtype, $condition) = Plugin::doHookFunction('add_default_where', [$itemtype, $condition]);
       return $condition;
    }
-
 
    /**
     * Generic Function to add where to a request
@@ -3913,19 +4053,21 @@ JAVASCRIPT;
 
       $inittable = $table;
       $addtable  = '';
+
+      $complexjoin = "";
+      if (isset($searchopt[$ID]['joinparams'])) {
+         $complexjoin = self::computeComplexJoinID($searchopt[$ID]['joinparams']);
+      }
+
       if (($table != 'asset_types')
-          && ($table != getTableForItemType($itemtype))
-          && ($searchopt[$ID]["linkfield"] != getForeignKeyFieldForTable($table))) {
+         && (($table == getTableForItemType($itemtype) && !empty($complexjoin)) || $table != getTableForItemType($itemtype))
+         && ($searchopt[$ID]["linkfield"] != getForeignKeyFieldForTable($table))) {
          $addtable = "_".$searchopt[$ID]["linkfield"];
          $table   .= $addtable;
       }
 
-      if (isset($searchopt[$ID]['joinparams'])) {
-         $complexjoin = self::computeComplexJoinID($searchopt[$ID]['joinparams']);
-
-         if (!empty($complexjoin)) {
-            $table .= "_".$complexjoin;
-         }
+      if (!empty($complexjoin)) {
+         $table .= "_".$complexjoin;
       }
 
       if ($meta
@@ -4256,6 +4398,15 @@ JAVASCRIPT;
                   return $link." `$table`.`$field` NOT IN ('".implode("','", $tocheck)."')";
                }
                return $link." `$table`.`$field` IN ('".implode("','", $tocheck)."')";
+            }
+            break;
+
+         case "glpi_notifications.event" :
+            if (in_array($searchtype, ['equals', 'notequals']) && strpos($val, self::SHORTSEP)) {
+               $not = 'notequals' === $searchtype ? 'NOT' : '';
+               list($itemtype_val, $event_val) = explode(self::SHORTSEP, $val);
+               return " $link $not(`$table`.`event` = '$event_val'
+                               AND `$table`.`itemtype` = '$itemtype_val')";
             }
             break;
 
@@ -4695,7 +4846,7 @@ JAVASCRIPT;
       }
 
       // Multiple link possibilies case
-      if (!empty($linkfield) && ($linkfield != getForeignKeyFieldForTable($new_table))) {
+      if (!empty($linkfield) && getTableNameForForeignKeyField($linkfield) != $new_table) {
          $nt .= "_".$linkfield;
          $AS  = " AS `$nt`";
       }
@@ -4716,7 +4867,7 @@ JAVASCRIPT;
 
       // Do not take into account standard linkfield
       $tocheck = $nt.".".$linkfield;
-      if ($linkfield == getForeignKeyFieldForTable($new_table)) {
+      if (getTableNameForForeignKeyField($linkfield) == $new_table) {
          $tocheck = $nt;
       }
 
@@ -4928,18 +5079,12 @@ JAVASCRIPT;
     * @param $from_type                   reference item type ID
     * @param $to_type                     item type to add
     * @param $already_link_tables2  array of tables already joined
-    * @param $nullornott                  Used LEFT JOIN (null generation)
-    *                                     or INNER JOIN for strict join
     *
     * @return Meta Left join string
    **/
    static function addMetaLeftJoin($from_type, $to_type, array &$already_link_tables2,
-                                   $nullornott, $joinparams = []) {
-
-      $LINK = " INNER JOIN ";
-      if ($nullornott) {
-         $LINK = " LEFT JOIN ";
-      }
+                                   $joinparams = []) {
+      $LINK = " LEFT JOIN ";
 
       $from_table = getTableForItemType($from_type);
       $from_fk    = getForeignKeyFieldForTable($from_table);
@@ -5194,7 +5339,7 @@ JAVASCRIPT;
          case "glpi_tickets.time_to_own" :
          case "glpi_tickets.internal_time_to_own" :
             if (!in_array($ID, [151, 158, 181, 186])
-                && !empty($data[$ID][0]['name'])
+                && !empty($data[$NAME][0]['name'])
                 && ($data[$NAME][0]['status'] != CommonITILObject::WAITING)
                 && ($data[$NAME][0]['name'] < $_SESSION['glpi_currenttime'])) {
                $out = " style=\"background-color: #cf9b9b\" ";
@@ -5242,6 +5387,13 @@ JAVASCRIPT;
          if (isset($searchopt[$ID]['addobjectparams'])
              && $searchopt[$ID]['addobjectparams']) {
             $oparams = $searchopt[$ID]['addobjectparams'];
+         }
+
+         // Search option may not exists in subtype
+         // This is the case for "Inventory number" for a Software listed from ReservationItem search
+         $subtype_so = &self::getOptions($data["TYPE"]);
+         if (!array_key_exists($ID, $subtype_so)) {
+            return '';
          }
 
          return self::giveItem($data["TYPE"], $ID, $data, $meta, $oparams, $itemtype);
@@ -5666,13 +5818,10 @@ JAVASCRIPT;
                   }
 
                   $color = $_SESSION['glpiduedateok_color'];
-                  $bar_color = 'green';
                   if ($less_crit < $less_crit_limit) {
                      $color = $_SESSION['glpiduedatecritical_color'];
-                     $bar_color = 'red';
                   } else if ($less_warn < $less_warn_limit) {
                      $color = $_SESSION['glpiduedatewarning_color'];
-                     $bar_color = 'yellow';
                   }
 
                   if (!isset($so['datatype'])) {
@@ -5683,7 +5832,7 @@ JAVASCRIPT;
                      'text'         => Html::convDateTime($data[$ID][0]['name']),
                      'percent'      => $percentage,
                      'percent_text' => $percentage_text,
-                     'color'        => $bar_color
+                     'color'        => $color
                   ];
                }
                break;
@@ -5885,8 +6034,7 @@ JAVASCRIPT;
                if ($data[$ID][0]['is_active']) {
                   return "<a href='reservation.php?reservationitems_id=".
                                           $data["refID"]."' title=\"".__s('See planning')."\">".
-                                          "<i class='far fa-calendar-alt'></i>";
-                                          "<span class='sr-only'>".__('See planning')."</span></a>";
+                                          "<i class='far fa-calendar-alt'></i><span class='sr-only'>".__('See planning')."</span></a>";
                } else {
                   return "&nbsp;";
                }
@@ -7193,7 +7341,7 @@ JAVASCRIPT;
             header('Pragma: private'); /// IE BUG + SSL
             header('Cache-control: private, must-revalidate'); /// IE BUG + SSL
             header("Content-disposition: filename=glpi.csv");
-            header('Content-type: application/octetstream');
+            header('Content-type: text/csv');
             // zero width no break space (for excel)
             echo"\xEF\xBB\xBF";
             break;

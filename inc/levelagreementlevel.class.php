@@ -92,7 +92,8 @@ abstract class LevelAgreementLevel extends RuleTicket {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false
+         'massiveaction'      => false,
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -317,7 +318,6 @@ abstract class LevelAgreementLevel extends RuleTicket {
 
       $possible_values = self::getExecutionTimes($p);
 
-      $p['value'] = $p['value'];
       return Dropdown::showFromArray($name, $possible_values, $p);
    }
 

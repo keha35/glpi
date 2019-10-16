@@ -381,7 +381,8 @@ class Reminder extends CommonDBVisible {
          'name'               => __('Title'),
          'datatype'           => 'itemlink',
          'massiveaction'      => false,
-         'forcegroupby'       => true
+         'forcegroupby'       => true,
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -923,7 +924,7 @@ class Reminder extends CommonDBVisible {
             $nreadpriv = ['glpi_reminders.users_id' => $who];
          }
          if ($who_group > 0) {
-            $ngrouppriv = ['glpi_reminders.groups_id' => $who];
+            $ngrouppriv = ['glpi_groups_reminders.groups_id' => $who_group];
             if (!empty($nreadpriv)) {
                $nreadpriv['OR'] = [$nreadpriv, $ngrouppriv];
             } else {
@@ -951,16 +952,16 @@ class Reminder extends CommonDBVisible {
          'glpi_reminders.is_planned'   => 1,
          'begin'                       => ['<', $end],
          'end'                         => ['>', $begin]
-      ];
+      ] + $NASSIGN;
 
       if ($options['check_planned']) {
          $WHERE['state'] = ['!=', Planning::INFO];
       }
 
       if (!$options['display_done_events']) {
-         $WHERE[] = [
+         $WHERE['OR'] = [
             'state'  => Planning::TODO,
-            'OR'     => [
+            'AND'     => [
                'state'  => Planning::INFO,
                'end'    => ['>', new \QueryExpression('NOW()')]
             ]

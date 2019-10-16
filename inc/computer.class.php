@@ -572,7 +572,8 @@ class Computer extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false // implicit key==1
+         'massiveaction'      => false, // implicit key==1
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -624,7 +625,8 @@ class Computer extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'uuid',
          'name'               => __('UUID'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -632,7 +634,8 @@ class Computer extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'serial',
          'name'               => __('Serial number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -640,7 +643,8 @@ class Computer extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'otherserial',
          'name'               => __('Inventory number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -656,7 +660,8 @@ class Computer extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'contact',
          'name'               => __('Alternate username'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -664,7 +669,8 @@ class Computer extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'contact_num',
          'name'               => __('Alternate username number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -748,6 +754,18 @@ class Computer extends CommonDBTM {
       ];
 
       $tab[] = [
+         'id'                 => '65',
+         'table'              => $this->getTable(),
+         'field'              => 'template_name',
+         'name'               => __('Template name'),
+         'datatype'           => 'text',
+         'massiveaction'      => false,
+         'nosearch'           => true,
+         'nodisplay'          => true,
+         'autocomplete'       => true,
+      ];
+
+      $tab[] = [
          'id'                 => '80',
          'table'              => 'glpi_entities',
          'field'              => 'completename',
@@ -770,6 +788,8 @@ class Computer extends CommonDBTM {
       $tab = array_merge($tab, ComputerVirtualMachine::rawSearchOptionsToAdd(get_class($this)));
 
       $tab = array_merge($tab, ComputerAntivirus::rawSearchOptionsToAdd());
+
+      $tab = array_merge($tab, Datacenter::rawSearchOptionsToAdd(get_class($this)));
 
       return $tab;
    }

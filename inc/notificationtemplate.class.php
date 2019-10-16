@@ -151,7 +151,8 @@ class NotificationTemplate extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false
+         'massiveaction'      => false,
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -349,7 +350,7 @@ class NotificationTemplate extends CommonDBTM {
       $string = Toolbox::unclean_cross_side_scripting_deep($string);
 
       //First of all process the FOREACH tag
-      if (preg_match_all("/##FOREACH[ ]?(FIRST|LAST)?[ ]?([0-9]*)?[ ]?([a-zA-Z-0-9\.]*)##/i",
+      if (preg_match_all("/##FOREACH[ ]?(FIRST|LAST)?[ ]?([0-9]*)?[ ]?([a-z-0-9\._]*)##/i",
                          $string, $out)) {
 
          foreach ($out[3] as $id => $tag_infos) {
@@ -411,7 +412,7 @@ class NotificationTemplate extends CommonDBTM {
    **/
    static function processIf($string, $data) {
 
-      if (preg_match_all("/##IF([a-z\.]*)[=]?(.*?)##/i", $string, $out)) {
+      if (preg_match_all("/##IF([a-z-0-9\._]*)[=]?(.*?)##/i", $string, $out)) {
          foreach ($out[1] as $key => $tag_infos) {
             $if_field = $tag_infos;
             //Get the field tag value (if one)

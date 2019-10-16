@@ -365,7 +365,8 @@ class Peripheral extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false
+         'massiveaction'      => false,
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -409,7 +410,8 @@ class Peripheral extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'serial',
          'name'               => __('Serial number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -417,7 +419,8 @@ class Peripheral extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'otherserial',
          'name'               => __('Inventory number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -425,7 +428,8 @@ class Peripheral extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'contact',
          'name'               => __('Alternate username'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -433,7 +437,8 @@ class Peripheral extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'contact_num',
          'name'               => __('Alternate username number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -485,7 +490,8 @@ class Peripheral extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'brand',
          'name'               => __('Brand'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -517,6 +523,18 @@ class Peripheral extends CommonDBTM {
       ];
 
       $tab[] = [
+         'id'                 => '61',
+         'table'              => $this->getTable(),
+         'field'              => 'template_name',
+         'name'               => __('Template name'),
+         'datatype'           => 'text',
+         'massiveaction'      => false,
+         'nosearch'           => true,
+         'nodisplay'          => true,
+         'autocomplete'       => true,
+      ];
+
+      $tab[] = [
          'id'                 => '80',
          'table'              => 'glpi_entities',
          'field'              => 'completename',
@@ -538,6 +556,8 @@ class Peripheral extends CommonDBTM {
       $tab = array_merge($tab, ObjectLock::rawSearchOptionsToAdd(get_class($this)));
 
       $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
+
+      $tab = array_merge($tab, Datacenter::rawSearchOptionsToAdd(get_class($this)));
 
       return $tab;
    }

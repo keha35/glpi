@@ -310,6 +310,44 @@ class Search extends DbTestCase {
                      ->contains("LEFT JOIN `glpi_entities`  AS `glpi_entities_");
    }
 
+   public function testHaving() {
+      $search_params = [
+         'reset'        => 'reset',
+         'is_deleted'   => 0,
+         'start'        => 0,
+         'search'       => 'Search',
+         'criteria'     => [
+            0 => [
+               'field'      => 1,
+               'searchtype' => 'contains',
+               'value'      => 'vm'
+            ],
+            1 => [
+               'link'       => 'OR',
+               'field'      => 18,
+               'searchtype' => 'contains',
+               'value'      => 4
+            ],
+         ]
+      ];
+
+      $data = $this->doSearch('Computer', $search_params);
+
+      // check for sql error (data key missing or empty)
+      $this->array($data)
+         ->hasKey('data')
+         ->array['last_errors']->isIdenticalTo([])
+         ->array['data']->isNotEmpty();
+
+      // Check having
+      $this->array($data)
+         ->hasKey('sql')
+         ->array['sql']
+         ->hasKey('search')
+         ->string['search']
+         ->contains("HAVING    (`glpi_computers`.`name`  LIKE '%vm%'  )  OR (`ITEM_Computer_18` = 4) ");
+   }
+
    public function testNestedAndMetaComputer() {
       $search_params = [
          'reset'      => 'reset',
@@ -396,9 +434,9 @@ class Search extends DbTestCase {
 
       $this->string($data['sql']['search'])
          // join parts
-         ->matches('/INNER JOIN\s*`glpi_computers_softwareversions`\s*AS `glpi_computers_softwareversions_Software`/im')
-         ->matches('/INNER JOIN\s*`glpi_softwareversions`\s*AS `glpi_softwareversions_Software`/im')
-         ->matches('/INNER JOIN\s*`glpi_softwares`\s*ON\s*\(`glpi_softwareversions_Software`\.`softwares_id`\s*=\s*`glpi_softwares`\.`id`\)/im')
+         ->matches('/LEFT JOIN\s*`glpi_computers_softwareversions`\s*AS `glpi_computers_softwareversions_Software`/im')
+         ->matches('/LEFT JOIN\s*`glpi_softwareversions`\s*AS `glpi_softwareversions_Software`/im')
+         ->matches('/LEFT JOIN\s*`glpi_softwares`\s*ON\s*\(`glpi_softwareversions_Software`\.`softwares_id`\s*=\s*`glpi_softwares`\.`id`\)/im')
          ->matches('/LEFT JOIN\s*`glpi_infocoms`\s*ON\s*\(`glpi_computers`\.`id`\s*=\s*`glpi_infocoms`\.`items_id`\s*AND\s*`glpi_infocoms`.`itemtype`\s*=\s*\'Computer\'\)/im')
          ->matches('/LEFT JOIN\s*`glpi_budgets`\s*ON\s*\(`glpi_infocoms`\.`budgets_id`\s*=\s*`glpi_budgets`\.`id`\)/im')
          ->matches('/LEFT JOIN\s*`glpi_computers_items`\s*AS `glpi_computers_items_Printer`\s*ON\s*\(`glpi_computers_items_Printer`\.`computers_id`\s*=\s*`glpi_computers`\.`id`\s*AND\s*`glpi_computers_items_Printer`.`itemtype`\s*=\s*\'Printer\'\s*AND\s*`glpi_computers_items_Printer`.`is_deleted`\s*=\s*0\)/im')
@@ -416,7 +454,7 @@ class Search extends DbTestCase {
          ->contains("(`glpi_users`.`id` = '2')")
          ->contains("OR (`glpi_users`.`id` = '3')")
          // match having
-         ->matches("/HAVING\s*\(`ITEM_Budget_2`\s+<>\s+5\)\s+AND\s+\(\(`ITEM_Printer_1`\s+NOT LIKE\s+'%HP%'\s+OR\s+`ITEM_Printer_1`\s+IS NULL\)\s*\)/");
+         ->matches("/HAVING.*\(`ITEM_Budget_2`\s+<>\s+5\)\s+AND\s+\(\(`ITEM_Printer_1`\s+NOT LIKE\s+'%HP%'\s+OR\s+`ITEM_Printer_1`\s+IS NULL\)\s*\)/");
    }
 
    function testViewCriterion() {
@@ -915,6 +953,33 @@ class Search extends DbTestCase {
 
    }
 
+   public function addSelectProvider() {
+      return [
+         'special_fk' => [[
+            'itemtype'  => 'Computer',
+            'ID'        => 24, // users_id_tech
+            'sql'       => '`glpi_users`.`name` AS `ITEM_Computer_24`, `glpi_users`.`realname` AS `ITEM_Computer_24_realname`, 
+                           `glpi_users`.`id` AS `ITEM_Computer_24_id`, `glpi_users`.`firstname` AS `ITEM_Computer_24_firstname`,'
+         ]],
+         'regular_fk' => [[
+            'itemtype'  => 'Computer',
+            'ID'        => 70, // users_id
+            'sql'       => '`glpi_users`.`name` AS `ITEM_Computer_70`, `glpi_users`.`realname` AS `ITEM_Computer_70_realname`, 
+                           `glpi_users`.`id` AS `ITEM_Computer_70_id`, `glpi_users`.`firstname` AS `ITEM_Computer_70_firstname`,'
+         ]],
+      ];
+   }
+
+   /**
+    * @dataProvider addSelectProvider
+    */
+   public function testAddSelect($provider) {
+      $sql_select = \Search::addSelect($provider['itemtype'], $provider['ID']);
+
+      $this->string($this->cleanSQL($sql_select))
+         ->isEqualTo($this->cleanSQL($provider['sql']));
+   }
+
    public function addLeftJoinProvider() {
       return [
          'itemtype_item_revert' => [[
@@ -941,6 +1006,26 @@ class Search extends DbTestCase {
                         ON (`glpi_contacts_id_d36f89b191ea44cf6f7c8414b12e1e50`.`id` = `glpi_projectteams`.`items_id`
                         AND `glpi_projectteams`.`itemtype` = 'Contact'
                          )"
+         ]],
+         'special_fk' => [[
+            'itemtype'           => 'Computer',
+            'table'              => \User::getTable(),
+            'field'              => 'name',
+            'linkfield'          => 'users_id_tech',
+            'meta'               => false,
+            'meta_type'          => null,
+            'joinparams'         => [],
+            'sql' => "LEFT JOIN `glpi_users` ON (`glpi_computers`.`users_id_tech` = `glpi_users`.`id` )"
+         ]],
+         'regular_fk' => [[
+            'itemtype'           => 'Computer',
+            'table'              => \User::getTable(),
+            'field'              => 'name',
+            'linkfield'          => 'users_id',
+            'meta'               => false,
+            'meta_type'          => null,
+            'joinparams'         => [],
+            'sql' => "LEFT JOIN `glpi_users` ON (`glpi_computers`.`users_id` = `glpi_users`.`id` )"
          ]],
       ];
    }
@@ -1229,6 +1314,39 @@ class Search extends DbTestCase {
     */
    public function testMakeTextSearchValue($value, $expected) {
       $this->string(\Search::makeTextSearchValue($value))->isIdenticalTo($expected);
+   }
+
+   public function providerAddWhere() {
+      return [
+         [
+            'link' => ' ',
+            'nott' => 0,
+            'itemtype' => \User::class,
+            'id' => 99,
+            'searchtype' => 'equals',
+            'val' => '5',
+            'meta' => false,
+            'expected' => "   `glpi_users_users_id_supervisor_c49005e57f22539b078d72faca40cdf3`.`id` = '5'",
+         ],
+         [
+            'link' => ' AND ',
+            'nott' => 0,
+            'itemtype' => \CartridgeItem::class,
+            'id' => 24,
+            'searchtype' => 'equals',
+            'val' => '2',
+            'meta' => false,
+            'expected' => "  AND  (`glpi_users_users_id_tech`.`id` = '2') ",
+         ],
+      ];
+   }
+
+   /**
+    * @dataProvider providerAddWhere
+    */
+   public function testAddWhere($link, $nott, $itemtype, $ID, $searchtype, $val, $meta, $expected) {
+      $output = \Search::addWhere($link, $nott, $itemtype, $ID, $searchtype, $val, $meta);
+      $this->string($output)->isEqualTo($expected);
    }
 }
 

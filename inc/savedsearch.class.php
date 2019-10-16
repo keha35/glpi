@@ -192,7 +192,8 @@ class SavedSearch extends CommonDBTM {
                 'field'              => 'name',
                 'name'               => __('Name'),
                 'datatype'           => 'itemlink',
-                'massiveaction'      => false // implicit key==1
+                'massiveaction'      => false, // implicit key==1
+                'autocomplete'       => true,
                ];
 
       $tab[] = ['id'                 => '2',
@@ -1246,8 +1247,7 @@ class SavedSearch extends CommonDBTM {
             'entities_id'  => $eid,
             'is_recursive' => $recur
          ], [
-            'id'           => $ids,
-            'is_private'   => 0
+            'id' => $ids
          ]
       );
       return $result;

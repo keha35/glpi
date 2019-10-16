@@ -288,16 +288,17 @@ class Toolbox {
    **/
    static function clean_cross_side_scripting_deep($value) {
 
+      if ((array) $value === $value) {
+         return array_map([__CLASS__, 'clean_cross_side_scripting_deep'], $value);
+      }
+
+      if (!is_string($value)) {
+         return $value;
+      }
+
       $in  = ['<', '>'];
       $out = ['&lt;', '&gt;'];
-
-      $value = ((array) $value === $value)
-                  ? array_map([__CLASS__, 'clean_cross_side_scripting_deep'], $value)
-                  : (is_null($value)
-                        ? null : (is_resource($value)
-                                     ? $value : str_replace($in, $out, $value)));
-
-      return $value;
+      return str_replace($in, $out, $value);
    }
 
 
@@ -312,16 +313,17 @@ class Toolbox {
    **/
    static function unclean_cross_side_scripting_deep($value) {
 
+      if ((array) $value === $value) {
+         return array_map([__CLASS__, 'unclean_cross_side_scripting_deep'], $value);
+      }
+
+      if (!is_string($value)) {
+         return $value;
+      }
+
       $in  = ['<', '>'];
       $out = ['&lt;', '&gt;'];
-
-      $value = ((array) $value === $value)
-                  ? array_map([__CLASS__, 'unclean_cross_side_scripting_deep'], $value)
-                  : (is_null($value)
-                        ? null : (is_resource($value)
-                                     ? $value : str_replace($out, $in, $value)));
-
-      return $value;
+      return str_replace($out, $in, $value);
    }
 
 
@@ -339,17 +341,14 @@ class Toolbox {
    static function unclean_html_cross_side_scripting_deep($value) {
       include_once(GLPI_HTMLAWED);
 
-      $in  = ['<', '>'];
-      $out = ['&lt;', '&gt;'];
-
-      $value = ((array) $value === $value)
-                  ? array_map([__CLASS__, 'unclean_html_cross_side_scripting_deep'], $value)
-                  : (is_null($value)
-                      ? null : (is_resource($value)
-                                  ? $value : str_replace($out, $in, $value)));
+      if ((array) $value === $value) {
+         $value = array_map([__CLASS__, 'unclean_html_cross_side_scripting_deep'], $value);
+      } else {
+         $value = self::unclean_cross_side_scripting_deep($value);
+      }
 
       // revert unclean inside <pre>
-      if (!is_array($value)) {
+      if (is_string($value)) {
          $count = preg_match_all('/(<pre[^>]*>)(.*?)(<\/pre>)/is', $value, $matches);
          for ($i = 0; $i < $count; ++$i) {
             $complete       = $matches[0][$i];
@@ -829,8 +828,8 @@ class Toolbox {
                        ? null : (is_resource($value)
                        ? $value : $DB->escape(
                           str_replace(
-                             ['&#039;', '&#39;', '&quot'],
-                             ["'", "'", "'"],
+                             ['&#039;', '&#39;', '&#x27;', '&apos;', '&quot;'],
+                             ["'", "'", "'", "'", "\""],
                              $value
                           )
                        ))
@@ -2386,11 +2385,6 @@ class Toolbox {
                'dbversion' => GLPI_SCHEMA_VERSION
             ]
          );
-         $DB->updateOrDie(
-            'glpi_users', [
-               'language' => 'NULL'
-            ], [0], "4203"
-         );
 
          if (defined('GLPI_SYSTEM_CRON')) {
             // Downstream packages may provide a good system cron
@@ -2710,11 +2704,18 @@ class Toolbox {
                      }
 
                      // replace image
-                     $new_image =  Html::convertTagFromRichTextToImageTag($image['tag'],
-                                                                          $width, $height,
-                                                                          true, $itil_url_param);
-                     $content_text = preg_replace(
-                        $regex,
+                     $new_image =  Html::getImageHtmlTagForDocument(
+                        $id,
+                        $width,
+                        $height,
+                        true,
+                        $itil_url_param
+                     );
+                     if (empty($new_image)) {
+                        $new_image = '#'.$image['tag'].'#';
+                     }
+                     $content_text = str_replace(
+                        $match_img,
                         $new_image,
                         Html::entity_decode_deep($content_text)
                      );

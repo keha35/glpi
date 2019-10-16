@@ -488,7 +488,8 @@ class Contract extends CommonDBTM {
          'forcegroupby'       => true,
          'massiveaction'      => false,
          'datatype'           => 'string',
-         'joinparams'         => $joinparams
+         'joinparams'         => $joinparams,
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -636,7 +637,8 @@ class Contract extends CommonDBTM {
          'field'              => 'name',
          'name'               => __('Name'),
          'datatype'           => 'itemlink',
-         'massiveaction'      => false
+         'massiveaction'      => false,
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -653,7 +655,8 @@ class Contract extends CommonDBTM {
          'table'              => $this->getTable(),
          'field'              => 'num',
          'name'               => _x('phone', 'Number'),
-         'datatype'           => 'string'
+         'datatype'           => 'string',
+         'autocomplete'       => true,
       ];
 
       $tab[] = [
@@ -883,6 +886,18 @@ class Contract extends CommonDBTM {
                ]
             ]
          ]
+      ];
+
+      $tab[] = [
+         'id'                 => '50',
+         'table'              => $this->getTable(),
+         'field'              => 'template_name',
+         'name'               => __('Template name'),
+         'datatype'           => 'text',
+         'massiveaction'      => false,
+         'nosearch'           => true,
+         'nodisplay'          => true,
+         'autocomplete'       => true,
       ];
 
       // add objectlock search options
@@ -1368,9 +1383,10 @@ class Contract extends CommonDBTM {
                   /**
                    * Next alert
                    */
-                  // Computation of first alert : Contract [begin date + periodicity] - Config [alert xxx days before]
+                  // Computation of first alert : Contract [begin date + initial duration] - Config [alert xxx days before]
+                  $initial_duration = $data['duration'] != 0 ? $data['duration'] : $data['periodicity'];
                   $next_alert = [
-                     $type => date('Y-m-d', strtotime($data['begin_date'] . " +" . $data['periodicity'] . " month -" . ($before) . " day")),
+                     $type => date('Y-m-d', strtotime($data['begin_date'] . " +" . $initial_duration . " month -" . ($before) . " day")),
                   ];
                   // If a notice is defined
                   if ($event == Alert::NOTICE) {
@@ -1526,7 +1542,8 @@ class Contract extends CommonDBTM {
                                                `glpi_contracts`.`duration` MONTH), CURDATE()) > '0'
                            OR `glpi_contracts`.`begin_date` IS NULL
                            OR (`glpi_contracts`.`duration` = 0
-                               AND DATEDIFF(`glpi_contracts`.`begin_date`, CURDATE() ) < '0' ))";
+                               AND DATEDIFF(`glpi_contracts`.`begin_date`, CURDATE() ) < '0' )
+                           OR `glpi_contracts`.`renewal` = 1)";
       }
 
       $query = "SELECT `glpi_contracts`.*
