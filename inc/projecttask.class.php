@@ -1416,7 +1416,7 @@ class ProjectTask extends CommonDBChild {
    /**
     * Populate the planning with planned project tasks
     *
-    * @since 9.1
+    * @since 0.85
     *
     * @param $options   array of possible options:
     *    - who ID of the user (0 = undefined)
@@ -1527,10 +1527,7 @@ class ProjectTask extends CommonDBChild {
       if ($DB->numrows($result) > 0) {
          for ($i=0; $data=$DB->fetch_assoc($result); $i++) {
             if ($task->getFromDB($data["id"])) {
-               $key = $data["plan_start_date"].
-                      "$$$"."ProjectTask".
-                      "$$$".$data["id"].
-                      "$$$".$who."$$$".$who_group;
+               $key = $data["plan_start_date"]."$$$"."ProjectTask"."$$$".$data["id"];
                $interv[$key]['color']            = $options['color'];
                $interv[$key]['event_type_color'] = $options['event_type_color'];
                $interv[$key]['itemtype']         = 'ProjectTask';

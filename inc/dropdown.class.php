@@ -842,12 +842,10 @@ class Dropdown {
                                              Session::getPluralNumber()),
                  'SolutionType'        => _n('Solution type', 'Solution types',
                                              Session::getPluralNumber()),
-                 'SolutionTemplate'    => _n('Solution template',
-                                             'Solution templates',
-                                             Session::getPluralNumber()),
                  'RequestType'         => _n('Request source', 'Request sources',
                                              Session::getPluralNumber()),
-                 'ITILFollowupTemplate' => _n('Followup template', 'Followup templates',
+                 'SolutionTemplate'    => _n('Solution template',
+                                             'Solution templates',
                                              Session::getPluralNumber()),
                  'ProjectState'        => _n('Project state', 'Project states',
                                              Session::getPluralNumber()),
@@ -857,9 +855,6 @@ class Dropdown {
                                              'Project tasks types',
                                              Session::getPluralNumber()),
                  'ProjectTaskTemplate' => _n('Project task template', 'Project task templates',
-                                             Session::getPluralNumber()),
-                 'PlanningExternalEventTemplate'
-                                       => PlanningExternalEventTemplate::getTypeName(
                                              Session::getPluralNumber()),
              ],
 

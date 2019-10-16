@@ -1941,12 +1941,8 @@ class Config extends CommonDBTM {
                  'check'   => 'LitEmoji\\LitEmoji' ],
                [ 'name'    => 'symfony/console',
                  'check'   => 'Symfony\\Component\\Console\\Application' ],
-               [ 'name'    => 'scssphp/scssphp',
-                 'check'   => 'ScssPhp\ScssPhp\Compiler' ],
-               [ 'name'    => 'zendframework/zend-mail',
-                 'check'   => 'Zend\\Mail\\Protocol\\Imap' ],
-               [ 'name'    => 'rlanvin/php-rrule',
-                 'check'   => 'RRule\\RRule' ],
+               [ 'name'    => 'leafo/scssphp',
+                 'check'   => 'Leafo\ScssPhp\Compiler' ],
       ];
       if ($all || PHP_VERSION_ID < 70000) {
          $deps[] = [
