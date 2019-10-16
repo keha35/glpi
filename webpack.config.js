@@ -44,54 +44,86 @@ var config = {
         filename: '[name].js',
         path: path.resolve(__dirname, 'public/build')
     },
+};
+
+/*
+ * External libraries files build configuration.
+ */
+var libsConfig = {
+    entry: function () {
+        // Create an entry per *.js file in lib/bundle directory.
+        // Entry name will be name of the file (without ext).
+        var entries = {};
+
+        let files = glob.sync(path.resolve(__dirname, 'lib/bundles') + '/*.js');
+        files.forEach(function (file) {
+            entries[path.basename(file, '.js')] = file;
+        });
+
+        return entries;
+    },
+    output: {
+        filename: '[name].js',
+        path: path.resolve(__dirname, libOutputPath),
+    },
+    module: {
+        rules: [
+            {
+                // Load scripts with no compilation for packages that are directly providing "dist" files.
+                // This prevents useless compilation pass and can also 
+                // prevents incompatibility issues with the webpack require feature.
+                test: /\.js$/,
+                include: [
+                    path.resolve(__dirname, 'node_modules/@fullcalendar'),
+                    path.resolve(__dirname, 'node_modules/codemirror'),
+                    path.resolve(__dirname, 'node_modules/gridstack'),
+                    path.resolve(__dirname, 'node_modules/jstree'),
+                    path.resolve(__dirname, 'node_modules/spectrum-colorpicker'),
+                ],
+                use: ['script-loader'],
+            },
+            {
+                // Build styles
+                test: /\.css$/,
+                use: [MiniCssExtractPlugin.loader, 'css-loader'],
+            },
+            {
+                // Copy images and fonts
+                test: /\.((gif|png|jp(e?)g)|(eot|ttf|svg|woff2?))$/,
+                use: {
+                    loader: 'file-loader',
+                    options: {
+                        name: function (filename) {
+                            // Keep only relative path
+                            var sanitizedPath = path.relative(__dirname, filename);
+
+                            // Sanitize name
+                            sanitizedPath = sanitizedPath.replace(/[^\\/\w-.]/, '');
+
+                            // Remove the first directory (lib, node_modules, ...) and empty parts
+                            // and replace directory separator by '/' (windows case)
+                            sanitizedPath = sanitizedPath.split(path.sep)
+                                .filter(function (part, index) {
+                                    return '' != part && index != 0;
+                                }).join('/');
+
+                            return sanitizedPath;
+                        },
+                    },
+                },
+            },
+        ],
+    },
     plugins: [
         new CleanWebpackPlugin([libOutputPath]), // Clean lib dir content
     ]
 };
 
 var libs = {
-    /*
-     * Nota:
-     * PHP file 'UploadHandler.php' is not fetch when installing with npm and is not available
-     * on packagist repository.
-     * This dependency is managed manually for the moment.
-    'blueimp-file-upload': [
+    '@fullcalendar': [
         {
-            from: '{js/jquery.fileupload.js,js/jquery.iframe-transport.js}',
-        }
-    ],
-    */
-    'chartist': [
-        {
-            context: 'dist',
-            from: '{chartist.css,chartist.js}',
-        }
-    ],
-    'chartist-plugin-legend': [
-        {
-            from: 'chartist-plugin-legend.js',
-        }
-    ],
-    'chartist-plugin-tooltips': [
-        {
-            context: 'dist',
-            from: '{chartist-plugin-tooltip.css,chartist-plugin-tooltip.js}',
-        }
-    ],
-    'diff-match-patch':[
-        {
-            from: 'index.js',
-        }
-    ],
-    '@fortawesome/fontawesome-free': [
-        {
-            from: '{css/all.css,webfonts/*}',
-        }
-    ],
-    'fullcalendar': [
-        {
-            context: 'dist',
-            from: '{fullcalendar{,.print}.css,fullcalendar.js,locale/*.js}',
+            context: 'core',
+            from: 'locales/*.js',
         }
     ],
     'fuzzy': [
@@ -140,73 +172,6 @@ var libs = {
             ignore: ['i18n/jquery-ui-timepicker-addon-i18n{,.min}.js'],
         }
     ],
-    'jquery.autogrow-textarea': [
-        {
-            from: 'jquery.autogrow-textarea.js',
-        }
-    ],
-    'jquery.rateit': [
-        {
-            context: 'scripts',
-            from: '{jquery.rateit.js,rateit.css,*.gif}',
-        }
-    ],
-    'jstree': [
-        {
-            context: 'dist',
-            from: 'jstree.js',
-        }
-    ],
-    'leaflet': [
-        {
-            context: 'dist',
-            from: '{leaflet.css,leaflet.js,images/*}',
-        }
-    ],
-    'leaflet-fullscreen': [
-        {
-            context: 'dist',
-            from: '{leaflet.fullscreen.css,Leaflet.fullscreen.js,*.png}',
-        }
-    ],
-    'leaflet-spin': [
-        {
-            from: 'leaflet.spin.js',
-        }
-    ],
-    'leaflet.awesome-markers': [
-        {
-            context: 'dist',
-            from: '{leaflet.awesome-markers.css,leaflet.awesome-markers.js,images/*}',
-        }
-    ],
-    'leaflet.markercluster': [
-        {
-            context: 'dist',
-            from: '{leaflet.markercluster-src.js,MarkerCluster{,.Default}.css}',
-        }
-    ],
-    'lodash': [
-        {
-            from: 'lodash.js',
-        }
-    ],
-    'moment': [
-        {
-            from: '{moment.js,locale/*.js}',
-        }
-    ],
-    'prismjs': [
-        {
-            from: '{components/prism-{core,apacheconf,bash,clike,json,nginx}.js,themes/prism-coy.css}',
-        }
-    ],
-    'qtip2': [
-        {
-            context: 'dist',
-            from: '{jquery.qtip.css,jquery.qtip.js}',
-        }
-    ],
     'select2': [
         {
             context: 'dist',
@@ -244,12 +209,7 @@ var libs = {
 
 for (let packageName in libs) {
     let libPackage = libs[packageName];
-    let to = libOutputPath + '/' + packageName;
-
-    let matches = packageName.match(/^@[^/]*\/(.*)$/);
-    if (null !== matches) {
-        to = libOutputPath + '/' + matches[1]; // Remove package prefix for destination dir
-    }
+    let to = libOutputPath + '/' + packageName.replace(/^@/, ''); // remove leading @ in case of prefixed package
 
     for (let e = 0; e < libPackage.length; e++) {
         let packageEntry = libPackage[e];
