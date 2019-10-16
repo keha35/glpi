@@ -35,32 +35,38 @@ if (!defined('GLPI_ROOT')) {
 }
 
 /**
- * SolutionTemplate Class
+ * Template for followups
+ * @since 9.5
 **/
-class SolutionTemplate extends CommonDropdown {
+class ITILFollowupTemplate extends CommonDropdown {
 
    // From CommonDBTM
-   public $dohistory = true;
-
-   static $rightname = 'solutiontemplate';
-
-   public $can_be_translated = false;
+   public $dohistory          = true;
+   public $can_be_translated  = true;
 
 
    static function getTypeName($nb = 0) {
-      return _n('Solution template', 'Solution templates', $nb);
+      return _n('Followup template', 'Followup templates', $nb);
    }
 
 
    function getAdditionalFields() {
-
-      return [['name'  => 'solutiontypes_id',
-                         'label' => __('Solution type'),
-                         'type'  => 'dropdownValue',
-                         'list'  => true],
-                   ['name'  => 'content',
-                         'label' => __('Content'),
-                         'type'  => 'tinymce']];
+      return [
+         [
+            'name'  => 'content',
+            'label' => __('Content'),
+            'type'  => 'tinymce',
+         ], [
+            'name'  => 'requesttypes_id',
+            'label' => __('Source of followup'),
+            'type'  => 'dropdownValue',
+            'list'  => true
+         ], [
+            'name'  => 'is_private',
+            'label' => __('Private'),
+            'type'  => 'bool'
+         ]
+      ];
    }
 
 
@@ -71,17 +77,25 @@ class SolutionTemplate extends CommonDropdown {
          'id'                 => '4',
          'name'               => __('Content'),
          'field'              => 'content',
-         'table'              => $this->getTable(),
+         'table'              => self::getTable(),
          'datatype'           => 'text',
          'htmltext'           => true
       ];
 
       $tab[] = [
-         'id'                 => '3',
-         'name'               => __('Solution type'),
+         'id'                 => '5',
+         'name'               => __('Source of followup'),
          'field'              => 'name',
-         'table'              => getTableForItemType('SolutionType'),
+         'table'              => getTableForItemType('RequestType'),
          'datatype'           => 'dropdown'
+      ];
+
+      $tab[] = [
+         'id'                 => '6',
+         'name'               => __('Private'),
+         'field'              => 'is_private',
+         'table'              => self::getTable(),
+         'datatype'           => 'bool'
       ];
 
       return $tab;
