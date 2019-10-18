@@ -344,7 +344,6 @@ trait PlanningEvent {
 
       $criteria = [
          'SELECT'          => ["$table.*"],
-         'DISTINCT'        => true,
          'FROM'            => $table,
          'WHERE'           => $WHERE,
          'ORDER'           => 'begin'
