@@ -484,7 +484,6 @@ $CFG_GLPI['javascript'] = [
    'config'    => [
       'config'    => ['colorpicker'],
       'commondropdown'  => [
-         'ITILFollowupTemplate'  => ['tinymce'],
          'PlanningEventCategory' => ['colorpicker'],
          'ProjectState'          => ['colorpicker'],
          'SolutionTemplate'      => ['tinymce'],

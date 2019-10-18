@@ -847,8 +847,6 @@ class Dropdown {
                                              Session::getPluralNumber()),
                  'RequestType'         => _n('Request source', 'Request sources',
                                              Session::getPluralNumber()),
-                 'ITILFollowupTemplate' => _n('Followup template', 'Followup templates',
-                                             Session::getPluralNumber()),
                  'ProjectState'        => _n('Project state', 'Project states',
                                              Session::getPluralNumber()),
                  'ProjectType'         => _n('Project type', 'Project types',
