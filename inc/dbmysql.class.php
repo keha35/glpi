@@ -1222,4 +1222,13 @@ class DBmysql {
    public function rollBack() {
       return $this->dbh->rollback();
    }
+
+   /**
+    * Are we in a transaction?
+    *
+    * @return boolean
+    */
+   public function inTransaction() {
+      return $this->in_transaction;
+   }
 }

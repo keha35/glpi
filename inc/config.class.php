@@ -60,6 +60,7 @@ class Config extends CommonDBTM {
    static $rightname              = 'config';
 
    static $undisclosedFields      = ['proxy_passwd', 'smtp_passwd'];
+   static $saferUndisclosedFields = ['admin_email', 'admin_reply'];
 
    static function getTypeName($nb = 0) {
       return __('Setup');
@@ -1940,8 +1941,12 @@ class Config extends CommonDBTM {
                  'check'   => 'LitEmoji\\LitEmoji' ],
                [ 'name'    => 'symfony/console',
                  'check'   => 'Symfony\\Component\\Console\\Application' ],
-               [ 'name'    => 'leafo/scssphp',
-                 'check'   => 'Leafo\ScssPhp\Compiler' ],
+               [ 'name'    => 'scssphp/scssphp',
+                 'check'   => 'ScssPhp\ScssPhp\Compiler' ],
+               [ 'name'    => 'zendframework/zend-mail',
+                 'check'   => 'Zend\\Mail\\Protocol\\Imap' ],
+               [ 'name'    => 'rlanvin/php-rrule',
+                 'check'   => 'RRule\\RRule' ],
       ];
       if ($all || PHP_VERSION_ID < 70000) {
          $deps[] = [
@@ -3389,5 +3394,27 @@ class Config extends CommonDBTM {
          }
          Log::constructHistory($this, $this->oldvalues, $this->fields);
       }
+   }
+
+   /**
+    * Get the GLPI Config without unsafe keys like passwords and emails (true on $safer)
+    *
+    * @param boolean $safer do we need to clean more (avoid emails disclosure)
+    * @return array of $CFG_GLPI without unsafe keys
+    *
+    * @since 9.5
+    */
+   public static function getSafeConfig($safer = false) {
+      global $CFG_GLPI;
+
+      $excludedKeys = array_flip(self::$undisclosedFields);
+      $safe_config  = array_diff_key($CFG_GLPI, $excludedKeys);
+
+      if ($safer) {
+         $excludedKeys = array_flip(self::$saferUndisclosedFields);
+         $safe_config = array_diff_key($safe_config, $excludedKeys);
+      }
+
+      return $safe_config;
    }
 }

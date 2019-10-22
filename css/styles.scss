@@ -1082,6 +1082,24 @@ span.vsubmit, a.vsubmit {
 
 /* ################--------------- Table  ---------------#################### */
 
+.card {
+   box-shadow: 0px 1px 2px 1px #999;
+
+   .field {
+      display: table-row;
+      padding: 5px;
+
+      label {
+         display: table-cell;
+         padding: 10px 5px;
+
+         & ~ div {
+            display: table-cell;
+         }
+      }
+   }
+}
+
 table {
    font-size: 11px;
 
@@ -2127,7 +2145,8 @@ a.icon_nav_move {
 
          .actor_icon {
             padding-bottom: 2px;
-            vertical-align: middle;
+            vertical-align: top;
+            color: rgb(68, 68, 68);
             font-size: 14px;
          }
 
@@ -2188,7 +2207,7 @@ a.icon_nav_move {
                display: block;
 
                > li label {
-                  width: 175px;
+                  width: 173px;
                }
             }
          }
@@ -2270,6 +2289,16 @@ a.icon_nav_move {
    width: auto;
    overflow: hidden;
 
+   .fc-time-grid-event {
+      // TODO check new version,
+      // Fullcalendar 2.4.0 seems to have removed this property
+      overflow: hidden;
+   }
+
+   .end-of-day {
+      border-right: 1px solid #bdbdbd;
+   }
+
    .fc-toolbar h2 {
       font-size: 1.2em;
 
@@ -2296,6 +2325,10 @@ a.icon_nav_move {
       }
    }
 
+   .event_today {
+      background: #fcf8e3;
+   }
+
    .event_today.event_todo .ui-widget-content {
       color: #FFA100;
 
@@ -2306,6 +2339,7 @@ a.icon_nav_move {
 
    .fc-event {
       font-weight: normal;
+      display: block;
 
       .fc-content {
          margin-right: 8px;
@@ -2345,6 +2379,14 @@ a.icon_nav_move {
          bottom: 0;
          top: 0;
          right: 0;
+      }
+   }
+
+   .fc-timeline {
+      .fc-event {
+         .content {
+            max-height: 25px;
+         }
       }
    }
 

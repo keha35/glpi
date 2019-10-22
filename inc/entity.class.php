@@ -1125,7 +1125,7 @@ class Entity extends CommonTreeDropdown {
 
       echo "<script type='text/javascript'>";
       echo "   $(function() {
-                  $.getScript('{$CFG_GLPI["root_doc"]}/lib/jqueryplugins/jstree/jstree.min.js').done(function(data, textStatus, jqxhr) {
+                  $.getScript('{$CFG_GLPI["root_doc"]}/public/lib/jstree/jstree.js').done(function(data, textStatus, jqxhr) {
                      $('#tree_projectcategory$rand')
                      // call `.jstree` with the options object
                      .jstree({
@@ -2021,6 +2021,36 @@ class Entity extends CommonTreeDropdown {
       echo "</div>";
    }
 
+
+   /**
+    * Returns tag containing custom CSS code applied to entity.
+    *
+    * @return string
+    */
+   public function getCustomCssTag() {
+
+      $enable_custom_css = self::getUsedConfig(
+         'enable_custom_css',
+         $this->fields['id']
+      );
+
+      if (!$enable_custom_css) {
+         return '';
+      }
+
+      $custom_css_code = self::getUsedConfig(
+         'enable_custom_css',
+         $this->fields['id'],
+         'custom_css_code',
+         ''
+      );
+
+      if (empty($custom_css_code)) {
+         return '';
+      }
+
+      return '<style>' . Html::entities_deep($custom_css_code) . '</style>';
+   }
 
    /**
     * @since 0.84 (before in entitydata.class)

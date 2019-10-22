@@ -86,25 +86,4 @@ class SolutionTemplate extends CommonDropdown {
 
       return $tab;
    }
-
-
-   /**
-    * @see CommonDropdown::displaySpecificTypeField()
-   **/
-   function displaySpecificTypeField($ID, $field = []) {
-
-      switch ($field['type']) {
-         case 'tinymce' :
-            // Display empty field
-            echo "&nbsp;</td></tr>";
-            // And a new line to have a complete display
-            echo "<tr class='center'><td colspan='5'>";
-            $rand = mt_rand();
-            Html::initEditorSystem($field['name'].$rand);
-            echo "<textarea id='".$field['name']."$rand' name='".$field['name']."' rows='3'>".
-                   $this->fields[$field['name']]."</textarea>";
-            break;
-      }
-   }
-
 }
