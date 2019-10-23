@@ -2612,8 +2612,8 @@ msgstr "Voir le catalogue des plugins"
 #: inc/stat.class.php:1409
 msgid "Problem"
 msgid_plural "Problems"
-msgstr[0] "Problème"
-msgstr[1] "Problèmes"
+msgstr[0] "Incidents à froid"
+msgstr[1] "Incident à froid"
 
 #. TRANS: %s is the user login
 #: front/profile_user.form.php:47
@@ -3655,8 +3655,8 @@ msgstr "%1$s enquête de satisfaction (%2$s)"
 #: inc/ruleticket.class.php:547 inc/ticket.class.php:5855
 msgid "Requester"
 msgid_plural "Requesters"
-msgstr[0] "Demandeur"
-msgstr[1] "Demandeurs"
+msgstr[0] "Contact / Bénéficiaire"
+msgstr[1] "Contacts / Bénéficiaires"
 
 #: front/stat.tracking.php:78 inc/commonitilobject.class.php:3280
 #: inc/commonitiltask.class.php:739 inc/itilfollowup.class.php:632
@@ -6138,8 +6138,8 @@ msgstr "Changements sur les éléments liés"
 #: inc/change_problem.class.php:64
 msgid "Link Problem/Change"
 msgid_plural "Links Problem/Change"
-msgstr[0] "Lien Problème/Changement"
-msgstr[1] "Liens Problème/Changement"
+msgstr[0] "Lien Incident à froid/Changement"
+msgstr[1] "Liens Incident à froid/Changement"
 
 #: inc/change_problem.class.php:159 inc/change_ticket.class.php:392
 #: inc/itil_project.class.php:179
@@ -6148,12 +6148,12 @@ msgstr "Ajouter un changement"
 
 #: inc/change_problem.class.php:171
 msgid "Create a change from this problem"
-msgstr "Créer un changement à partir de ce problème"
+msgstr "Créer un changement à  partir de cet incident à froid"
 
 #: inc/change_problem.class.php:269 inc/itil_project.class.php:182
 #: inc/problem_ticket.class.php:395
 msgid "Add a problem"
-msgstr "Ajouter un problème"
+msgstr "Ajouter un incident à froid"
 
 #: inc/changetask.class.php:43
 msgid "Change task"
@@ -6975,8 +6975,8 @@ msgstr "Au moins très haut"
 #: inc/ticket.class.php:4076
 msgid "Watcher"
 msgid_plural "Watchers"
-msgstr[0] "Observateur"
-msgstr[1] "Observateurs"
+msgstr[0] "Appelant / Demandeur"
+msgstr[1] "Appelants / Demandeurs"
 
 #: inc/commonitilobject.class.php:2987
 msgid "Time to resolve + Progress"
@@ -7030,8 +7030,8 @@ msgstr "Délai d'attente"
 #: inc/ruleticket.class.php:410 inc/ruleticket.class.php:555
 msgid "Requester group"
 msgid_plural "Requester groups"
-msgstr[0] "Groupe demandeur"
-msgstr[1] "Groupes demandeurs"
+msgstr[0] "Emplacement"
+msgstr[1] "Emplacements"
 
 #: inc/commonitilobject.class.php:3319 inc/commonitilobject.class.php:3593
 #: inc/notificationtargetcommonitilobject.class.php:740
@@ -7051,7 +7051,7 @@ msgstr "Assigné à un fournisseur"
 #: inc/commonitilobject.class.php:3383 inc/ruleticket.class.php:422
 #: inc/ruleticket.class.php:572
 msgid "Technician group"
-msgstr "Groupe de techniciens"
+msgstr "Groupe d'attribution"
 
 #: inc/commonitilobject.class.php:3420
 msgid "Email for followup"
@@ -7059,11 +7059,11 @@ msgstr "Courriel pour le suivi"
 
 #: inc/commonitilobject.class.php:3572
 msgid "Requester user"
-msgstr "Demandeur"
+msgstr "Contact / Bénéficiaire"
 
 #: inc/commonitilobject.class.php:3576
 msgid "Watcher user"
-msgstr "Observateur"
+msgstr "Appelant / Demandeur"
 
 #: inc/commonitilobject.class.php:3597
 #: inc/notificationtargetcommonitilobject.class.php:739
@@ -12664,7 +12664,7 @@ msgstr "Visible pour une demande"
 
 #: inc/itilcategory.class.php:83 inc/itilcategory.class.php:168
 msgid "Visible for a problem"
-msgstr "Visible pour un problème"
+msgstr "Visible pour un incident à froid"
 
 #: inc/itilcategory.class.php:87 inc/itilcategory.class.php:176
 msgid "Visible for a change"
@@ -12693,8 +12693,7 @@ msgstr "Nombre de tickets"
 #: inc/search.class.php:6627 inc/ticket.class.php:3431
 msgctxt "quantity"
 msgid "Number of problems"
-msgstr "Nombre de problèmes"
-
+msgstr "Nombre d'incidents à froid"
 #: inc/itilcategory.class.php:218 inc/notificationtargetproblem.class.php:196
 #: inc/notificationtargetproject.class.php:606
 #: inc/notificationtargetticket.class.php:622 inc/project.class.php:829
@@ -14737,7 +14736,7 @@ msgstr "Superviseur du groupe demandeur"
 
 #: inc/notificationtargetcommonitilobject.class.php:730
 msgid "Requester group except manager users"
-msgstr "Groupe demandeur sans superviseur"
+msgstr "Emplacement sans superviseur"
 
 #: inc/notificationtargetcommonitilobject.class.php:735
 msgid "Technician in charge of the ticket"
@@ -14962,23 +14961,23 @@ msgstr "Rappels du planning"
 
 #: inc/notificationtargetproblem.class.php:50
 msgid "New problem"
-msgstr "Nouveau problème"
+msgstr "Nouvel incident à froid"
 
 #: inc/notificationtargetproblem.class.php:51
 msgid "Update of a problem"
-msgstr "Modification d'un problème"
+msgstr "Modification d'un incident à froid"
 
 #: inc/notificationtargetproblem.class.php:52
 msgid "Problem solved"
-msgstr "Problème résolu"
+msgstr "Incident à froid résolu"
 
 #: inc/notificationtargetproblem.class.php:53
 msgid "Closure of a problem"
-msgstr "Clôture d'un problème"
+msgstr "Clôture d'un incident à froid"
 
 #: inc/notificationtargetproblem.class.php:54
 msgid "Deleting a problem"
-msgstr "Suppression d'un problème"
+msgstr "Suppression d'un incident à froid"
 
 #: inc/notificationtargetproblem.class.php:198 inc/problem.class.php:492
 #: inc/problem.class.php:1286
@@ -16037,23 +16036,23 @@ msgstr "En observation"
 
 #: inc/problem.class.php:734 inc/problem.class.php:784
 msgid "Problems on pending status"
-msgstr "Problèmes en attente"
+msgstr "Incidents à froid en attente"
 
 #: inc/problem.class.php:750 inc/problem.class.php:800
 msgid "Problems to be processed"
-msgstr "Problèmes à traiter"
+msgstr "incidents à froid à traiter"
 
 #: inc/problem.class.php:766 inc/problem.class.php:816
 msgid "Your problems in progress"
-msgstr "Vos problèmes en cours"
+msgstr "Vos incidents à froid en cours"
 
 #: inc/problem.class.php:919
 msgid "Problem followup"
-msgstr "Suivi des problèmes"
+msgstr "Suivi des incidents à froid"
 
 #: inc/problem.class.php:1017
 msgid "No problem in progress."
-msgstr "Pas de problème en cours."
+msgstr "Pas d'incident à froid en cours."
 
 #. TRANS: %d is the document number
 #: inc/problem.class.php:1248
@@ -16065,7 +16064,7 @@ msgstr[1] "%d documents associés"
 
 #: inc/problem.class.php:1409
 msgid "Last problems"
-msgstr "Derniers problèmes"
+msgstr "Derniers incidents à froid"
 
 #: inc/problem.class.php:1450
 msgid "New problem for this item..."
@@ -16076,32 +16075,32 @@ msgstr "Nouveau problème pour cet élément..."
 #, php-format
 msgid "Last %d problem"
 msgid_plural "Last %d problems"
-msgstr[0] "%d dernier problème"
-msgstr[1] "%d derniers problèmes"
+msgstr[0] "%d dernier incident à froid"
+msgstr[1] "%d derniers incidents à froid"
 
 #: inc/problem.class.php:1497 inc/problem.class.php:1551
 msgid "No problem found."
-msgstr "Pas de problème trouvé."
+msgstr "Pas d'incident à froid trouvé."
 
 #: inc/problem.class.php:1539
 msgid "Problems on linked items"
-msgstr "Problèmes sur les éléments liés"
+msgstr "Incidents à froid sur les éléments liés"
 
 #: inc/problemtask.class.php:43
 msgid "Problem task"
 msgid_plural "Problem tasks"
-msgstr[0] "Tâche de problème"
-msgstr[1] "Tâches de problèmes"
+msgstr[0] "Tâche d'incident à froid"
+msgstr[1] "Tâches d'incidents à froid"
 
 #: inc/problem_ticket.class.php:59
 msgid "Link Ticket/Problem"
 msgid_plural "Links Ticket/Problem"
-msgstr[0] "Lien Ticket/Problème"
-msgstr[1] "Liens Ticket/Problème"
+msgstr[0] "Lien Ticket/Incident à froid"
+msgstr[1] "Liens Ticket/Incident à froid"
 
 #: inc/problem_ticket.class.php:417
 msgid "Create a problem from this ticket"
-msgstr "Créer un problème à partir de ce ticket"
+msgstr "Créer un incident à froid à partir de ce ticket"
 
 #: inc/profile.class.php:94 inc/profile.class.php:100
 msgid "Life cycles"
@@ -16232,7 +16231,7 @@ msgstr "Cycle de vie des tickets"
 
 #: inc/profile.class.php:1172 inc/profile.class.php:2354
 msgid "Life cycle of problems"
-msgstr "Cycle de vie des problèmes"
+msgstr "Cycle de vie des incidents à froid"
 
 #: inc/profile.class.php:1175 inc/profile.class.php:2378
 msgid "Life cycle of changes"
@@ -17656,7 +17655,7 @@ msgid ""
 "Urgency or impact used in actions, think to add Priority: recompute action "
 "if needed."
 msgstr ""
-"Urgence ou impact utilisé comme action, pensez à ajouter Priorité : "
+"Criticité ou impact utilisé comme action, pensez à ajouter Priorité : "
 "recalculer si nécessaire."
 
 #: inc/ruleticket.class.php:380
@@ -18243,7 +18242,7 @@ msgstr "Par caractéristiques matérielles"
 
 #: inc/stat.class.php:1413
 msgid "By problem"
-msgstr "Par problème"
+msgstr "Par incident à froid"
 
 #: inc/stat.class.php:1422
 msgid "By change"
@@ -18501,7 +18500,7 @@ msgstr "Nombre de tickets parents"
 
 #: inc/ticket.class.php:3424
 msgid "Problems"
-msgstr "Problèmes"
+msgstr "Incidents à froid"
 
 #: inc/ticket.class.php:3751
 msgid "Tickets awaiting approval"

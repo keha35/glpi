@@ -60,6 +60,10 @@ foreach ($date_fields as $date_field) {
 if (isset($_POST["add"])) {
    $track->check(-1, CREATE, $_POST);
 
+   $groupe = new Group();
+   $groupe->getFromDB($_POST['_groups_id_requester']);
+   $_POST['entities_id'] = $groupe->getField('entities_id');
+
    if ($track->add($_POST)) {
       if ($_SESSION['glpibackcreated']) {
          Html::redirect($track->getLinkURL());

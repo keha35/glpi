@@ -100,11 +100,11 @@ if ((isset($_POST['field']) && ($_POST["value"] > 0))
       // Several emails : select in the list
       $emailtab = [];
       foreach ($emails as $new_email) {
-         if ($new_email != $default_email) {
+//         if ($new_email != $default_email) {
             $emailtab[$new_email] = $new_email;
-         } else {
-            $emailtab[''] = $new_email;
-         }
+//         } else {
+//            $emailtab[''] = $new_email;
+//         }
       }
       $email_string = Dropdown::showFromArray($_POST['field']."[alternative_email][]", $emailtab,
                                               ['value'   => '',
