@@ -1042,8 +1042,12 @@ class CommonDBTM extends CommonGLPI {
    **/
    protected function restoreInput(Array $default = []) {
 
-      if (isset($_SESSION['saveInput'][$this->getType()])) {
-         $saved = Html::cleanPostForTextArea($_SESSION['saveInput'][$this->getType()]);
+      $type = $this->getType();
+      if($type =='PluginShippingTicket'){
+         $type = 'Ticket';
+      }
+      if (isset($_SESSION['saveInput'][$type])) {
+         $saved = Html::cleanPostForTextArea($_SESSION['saveInput'][$type]);
 
          // clear saved data when restored (only need once)
          $this->clearSavedInput();
@@ -1229,7 +1233,7 @@ class CommonDBTM extends CommonGLPI {
       if (!preg_match('/title=/', $p['linkoption'])) {
          $thename = $this->getName(['complete' => true]);
          if ($thename != NOT_AVAILABLE) {
-            $title = ' title="' . htmlentities($thename, ENT_QUOTES, 'utf-8') . '"';
+            $title = ' title="' . htmlentities($thename, ENT_NOQUOTES, 'utf-8') . '"';
          }
       }
 
@@ -4840,6 +4844,9 @@ class CommonDBTM extends CommonGLPI {
          return false;
       }
 
+      // force template
+      $item->fields['is_template'] = true;
+
       $request = [
          'FROM'   => $item->getTable(),
          'WHERE'  => [
@@ -5074,7 +5081,8 @@ class CommonDBTM extends CommonGLPI {
          }
 
          //retrieve entity
-         $entities_id = isset($_SESSION['glpiactive_entity']) ? $_SESSION['glpiactive_entity'] : 0;
+//         $entities_id = isset($_SESSION['glpiactive_entity']) ? $_SESSION['glpiactive_entity'] : 0;
+         $entities_id = $_SESSION['glpiactive_entity'];
          if (isset($this->fields["entities_id"])) {
             $entities_id = $this->fields["entities_id"];
          } else if (isset($input['entities_id'])) {
@@ -5093,11 +5101,10 @@ class CommonDBTM extends CommonGLPI {
                 && ($docID > 0)
                 && isset($input[$options['content_field']])) {
 
-               $input[$options['content_field']] = str_replace(
-                  $input['_tag'][$key],
-                  $doc->fields["tag"],
-                  $input[$options['content_field']]
-               );
+               $input[$options['content_field']]
+                  = preg_replace('/'.Document::getImageTag($input['_tag'][$key]).'/',
+                  Document::getImageTag($doc->fields["tag"]),
+               $input[$options['content_field']]);
                $docadded[$docID]['tag'] = $doc->fields["tag"];
             }
 
@@ -5177,10 +5184,7 @@ class CommonDBTM extends CommonGLPI {
             $docadded
          );
 
-         if (isset($this->input['_forcenotif'])) {
-            $input['_forcenotif'] = $this->input['_forcenotif'];
-            unset($input['_disablenotif']);
-         }
+         $input['_forcenotif'] = true;
 
          // force update of content on add process (we are in post_addItem function)
          if ($options['force_update']) {

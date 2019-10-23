@@ -565,7 +565,7 @@ class Item_Ticket extends CommonDBRelation{
     *
     * @return nothing (print out an HTML select box)
    **/
-   static function dropdownAllDevices($myname, $itemtype, $items_id = 0, $admin = 0, $users_id = 0,
+   static function dropdownAllDevices($myname, $itemtype, $items_id = 0, $admin = 0, $groups_id = 0,
                                       $entity_restrict = -1, $options = []) {
       global $CFG_GLPI, $DB;
 
@@ -589,11 +589,11 @@ class Item_Ticket extends CommonDBRelation{
          if ($_SESSION["glpiactiveprofile"]["helpdesk_hardware"]&pow(2,
                                                                      Ticket::HELPDESK_ALL_HARDWARE)) {
             // Display a message if view my hardware
-            if ($users_id
-                &&($_SESSION["glpiactiveprofile"]["helpdesk_hardware"]&pow(2,
-                                                                           Ticket::HELPDESK_MY_HARDWARE))) {
+//            if ($users_id
+//                &&($_SESSION["glpiactiveprofile"]["helpdesk_hardware"]&pow(2,
+//                                                                           Ticket::HELPDESK_MY_HARDWARE))) {
                echo __('Or complete search')."&nbsp;";
-            }
+//            }
 
             $types = Ticket::getAllTypesForHelpdesk();
             $emptylabel = __('General');
@@ -612,11 +612,13 @@ class Item_Ticket extends CommonDBRelation{
                        'used'            => $params['used'],
                        'multiple'        => $params['multiple'],
                        'rand'            => $rand,
+                       'groups_id'       => $groups_id,
+                       'tickets_id'      => $params['tickets_id'],
                        'myname'          => "add_items_id"];
 
             Ajax::updateItemOnSelectEvent("dropdown_$myname$rand", "results_$myname$rand",
                                           $CFG_GLPI["root_doc"].
-                                             "/ajax/dropdownTrackingDeviceType.php",
+                                             "/plugins/shipping/ajax/dropdownTrackingDeviceType.php",
                                           $p);
             echo "<span id='results_$myname$rand'>\n";
 
@@ -635,10 +637,18 @@ class Item_Ticket extends CommonDBRelation{
                   echo "$(function() {";
                   Ajax::updateItemJsCode("results_$myname$rand",
                                          $CFG_GLPI["root_doc"].
-                                            "/ajax/dropdownTrackingDeviceType.php",
+                                            "/plugins/shipping/ajax/dropdownTrackingDeviceType.php",
                                          $p);
                   echo '});</script>';
                }
+            }
+            // Show update associated elements
+            if (!empty($itemtype)) {
+               $ticket = new PluginShippingTicket();
+               $ticket->tooltipAssociatedItem(array('itemtype'  => $itemtype,
+                  'items_id'  => $items_id,
+                  'entity'    => $entity_restrict,
+                  'rand'      => $rand));
             }
             echo "</span>\n";
          }

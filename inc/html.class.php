@@ -774,7 +774,7 @@ class Html {
             </span>";
          }
 
-         echo "<div id='debugtabs$rand'><ul>";
+         echo "<div id='debugtabs$rand' style='display:none'><ul>";
          if ($CFG_GLPI["debug_sql"]) {
             echo "<li><a href='#debugsql$rand'>SQL REQUEST</a></li>";
          }
@@ -3641,13 +3641,14 @@ class Html {
                'tabfocus autoresize link image paste',
                'code fullscreen stickytoolbar',
                'textcolor colorpicker',
+               'lists',
                // load glpi_upload_doc specific plugin if we need to upload files
                typeof tinymce.AddOnManager.PluginManager.lookup.glpi_upload_doc != 'undefined'
                   ? 'glpi_upload_doc'
                   : '',
                'lists'
             ],
-            toolbar: 'styleselect | bold italic | forecolor backcolor | bullist numlist outdent indent | table link image | code fullscreen',
+            toolbar: 'styleselect | bold italic | forecolor backcolor | bullist numlist outdent indent | table link image | code fullscreen | removeformat',
             $readonlyjs
          });
 

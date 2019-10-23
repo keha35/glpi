@@ -1824,9 +1824,7 @@ class Ticket extends CommonITILObject {
       if (!isset($input['_auto_import'])
           && isset($_SESSION['glpiset_default_tech']) && $_SESSION['glpiset_default_tech']
           && Session::getCurrentInterface() == 'central'
-          && (!isset($input['_users_id_assign']) || $input['_users_id_assign'] == 0)
-          && Session::haveRight("ticket", Ticket::OWN)
-      ) {
+          && (!isset($input['_users_id_assign']) || $input['_users_id_assign'] == 0)) {
          $input['_users_id_assign'] = Session::getLoginUserID();
       }
 
@@ -1852,15 +1850,15 @@ class Ticket extends CommonITILObject {
 
       // Clean new lines before passing to rules
       if (isset($input["content"])) {
-         $input["content"] = preg_replace('/\\\\r\\\\n/', "\\n", $input['content']);
-         $input["content"] = preg_replace('/\\\\n/', "\\n", $input['content']);
+         $input["content"] = preg_replace('/\\\\r\\\\n/', "\n", $input['content']);
+         $input["content"] = preg_replace('/\\\\n/', "\n", $input['content']);
       }
 
-      $input = $rules->processAllRules($input,
-                                       $input,
+      $input = $rules->processAllRules(Toolbox::stripslashes_deep($input),
+                                       Toolbox::stripslashes_deep($input),
                                        ['recursive' => true],
                                        ['condition' => RuleTicket::ONADD]);
-      $input = Toolbox::stripslashes_deep($input);
+      //   $input = Toolbox::stripslashes_deep($input);
 
       // Recompute default values based on values computed by rules
       $input = $this->computeDefaultValuesForAdd($input);
@@ -4437,9 +4435,11 @@ class Ticket extends CommonITILObject {
 
 
    function showForm($ID, $options = []) {
+      if($ID==-1){
+         $ID=0;
+      }
       global $CFG_GLPI;
-
-      if (isset($options['_add_fromitem']) && isset($options['itemtype'])) {
+      if (isset($options['_add_fromitem'])) {
          $item = new $options['itemtype'];
          $item->getFromDB($options['items_id'][$options['itemtype']][0]);
          $options['entities_id'] = $item->fields['entities_id'];
@@ -4477,14 +4477,31 @@ class Ticket extends CommonITILObject {
       }
 
       if (!$ID) {
-         // Override defaut values from projecttask if needed
-         if (isset($options['_projecttasks_id'])) {
-            $pt = new ProjectTask();
-            if ($pt->getFromDB($options['_projecttasks_id'])) {
-               $options['name'] = $pt->getField('name');
-               $options['content'] = $pt->getField('name');
+         //INFOTEL - plugin shipping
+         //Changing the process for the ticket entity if the shipping plugin is activated
+         Plugin::doHook('plugin_shipping_showform_entities', ['item'    => &$this,
+            'options' => &$options]);
+         if(!isset($options['shipping'])) {
+            $this->userentities = [];
+            if ($options["_users_id_requester"]) {
+               //Get all the user's entities
+               $requester_entities = Profile_User::getUserEntities($options["_users_id_requester"], true,
+                  true);
+               $user_entities      = $_SESSION['glpiactiveentities'];
+               $this->userentities = array_intersect($requester_entities, $user_entities);
+            }
+            $this->countentitiesforuser = count($this->userentities);
+
+            if (($this->countentitiesforuser > 0)
+               && !in_array($this->fields["entities_id"], $this->userentities)) {
+               // If entity is not in the list of user's entities,
+               // then use as default value the first value of the user's entites list
+               $this->fields["entities_id"] = $this->userentities[0];
+               // Pass to values
+               $options['entities_id'] = $this->userentities[0];
             }
          }
+         //INFOTEL - plugin shipping
          // Override defaut values from followup if needed
          if (isset($options['_promoted_fup_id']) && !$options['_skip_promoted_fields']) {
             $fup = new ITILFollowup();
@@ -4533,24 +4550,31 @@ class Ticket extends CommonITILObject {
       }
 
       if (!$ID) {
-         $this->userentities = [];
-         if ($options["_users_id_requester"]) {
-            //Get all the user's entities
-            $requester_entities = Profile_User::getUserEntities($options["_users_id_requester"], true,
-                                                          true);
-            $user_entities = $_SESSION['glpiactiveentities'];
-            $this->userentities = array_intersect($requester_entities, $user_entities);
-         }
-         $this->countentitiesforuser = count($this->userentities);
+         //INFOTEL - plugin shipping
+         //Changing the process for the ticket entity if the shipping plugin is activated
+         Plugin::doHook('plugin_shipping_showform_entities', ['item' => &$this,
+            'options' => &$options]);
+         if (!isset($options['shipping'])) {
+            $this->userentities = [];
+            if ($options["_users_id_requester"]) {
+               //Get all the user's entities
+               $requester_entities = Profile_User::getUserEntities($options["_users_id_requester"], true,
+                  true);
+               $user_entities = $_SESSION['glpiactiveentities'];
+               $this->userentities = array_intersect($requester_entities, $user_entities);
+            }
+            $this->countentitiesforuser = count($this->userentities);
 
-         if (($this->countentitiesforuser > 0)
-             && !in_array($this->fields["entities_id"], $this->userentities)) {
-            // If entity is not in the list of user's entities,
-            // then use as default value the first value of the user's entites list
-            $this->fields["entities_id"] = $this->userentities[0];
-            // Pass to values
-            $options['entities_id']       = $this->userentities[0];
+            if (($this->countentitiesforuser > 0)
+               && !in_array($this->fields["entities_id"], $this->userentities)) {
+               // If entity is not in the list of user's entities,
+               // then use as default value the first value of the user's entites list
+               $this->fields["entities_id"] = $this->userentities[0];
+               // Pass to values
+               $options['entities_id'] = $this->userentities[0];
+            }
          }
+         //INFOTEL - plugin shipping
       }
 
       if ($options['type'] <= 0) {
@@ -4922,7 +4946,14 @@ class Ticket extends CommonITILObject {
 
       if (!$ID) {
          echo "</table>";
-         $this->showActorsPartForm($ID, $options);
+         //INFOTEL - plugin shipping
+         Plugin::doHook('plugin_shipping_ticket_actors', ['ID' => $ID,
+            'item' => $this,
+            'options' => &$options]);
+         if (!isset($options['shipping'])) {
+            $this->showActorsPartForm($ID, $options);
+         }
+         //INFOTEL - plugin shipping
          echo "<table class='tab_cadre_fixe' id='mainformtable3'>";
       }
 
@@ -4933,13 +4964,23 @@ class Ticket extends CommonITILObject {
       echo "<td width='$colsize2%'>";
       echo $tt->getBeginHiddenFieldValue('status');
       if ($canupdate) {
-         self::dropdownStatus(['value'     => $this->fields["status"],
-                                    'showtype'  => 'allowed']);
+         //INFOTEL plugin_shipping
+         unset($options['shipping']);
+         Plugin::doHook('plugin_shipping_ticket_status', ['ID' => $ID,
+            'status' => $this->fields["status"],
+            'options' => &$options]);
+         if (!isset($options['shipping'])) {
+            self::dropdownStatus(['value' => $this->fields["status"],
+               'showtype' => 'allowed']);
+         }
+         //INFOTEL - plugin shipping
          TicketValidation::alertValidation($this, 'status');
       } else {
          echo self::getStatus($this->fields["status"]);
          if ($this->canReopen()) {
-            $link = $this->getLinkURL(). "&amp;_openfollowup=1&amp;forcetab=";
+            //INFOTEL - plugin shipping
+            $link = $CFG_GLPI["root_doc"] . "/front/ticket.form.php?id=" . $_GET['id'] . "&amp;_openfollowup=1&amp;forcetab=";
+            //INFOTEL - plugin shipping
             $link .= "Ticket$1";
             echo "&nbsp;<a class='vsubmit' href='$link'>". __('Reopen')."</a>";
          }
@@ -4968,19 +5009,25 @@ class Ticket extends CommonITILObject {
       echo $tt->getEndHiddenFieldText('urgency')."</th>";
       echo "<td>";
 
-      if ($canupdate || $can_requester) {
-         echo $tt->getBeginHiddenFieldValue('urgency');
-         $idurgency = self::dropdownUrgency(['value' => $this->fields["urgency"]]);
-         echo $tt->getEndHiddenFieldValue('urgency', $this);
-
-      } else {
-         $idurgency = "value_urgency".mt_rand();
-         echo "<input id='$idurgency' type='hidden' name='urgency' value='".
-                $this->fields["urgency"]."'>";
-         echo $tt->getBeginHiddenFieldValue('urgency');
-         echo parent::getUrgencyName($this->fields["urgency"]);
-         echo $tt->getEndHiddenFieldValue('urgency', $this);
-      }
+      //INFOTEL plugin_shipping
+      //      if ($canupdate || $can_requester) {
+      //         echo $tt->getBeginHiddenFieldValue('urgency');
+      //         $idurgency = self::dropdownUrgency(['value' => $this->fields["urgency"]]);
+      //         echo $tt->getEndHiddenFieldValue('urgency', $this);
+      //
+      //      } else {
+      //         $idurgency = "value_urgency".mt_rand();
+      //         echo "<input id='$idurgency' type='hidden' name='urgency' value='".
+      //                $this->fields["urgency"]."'>";
+      //         echo $tt->getBeginHiddenFieldValue('urgency');
+      //         echo parent::getUrgencyName($this->fields["urgency"]);
+      //         echo $tt->getEndHiddenFieldValue('urgency', $this);
+      //      }
+      $idurgency = "value_urgency" . mt_rand();
+      echo "<input id='$idurgency' type='hidden' name='urgency' value='" .
+         $this->fields["urgency"] . "'>";
+      echo parent::getUrgencyName($this->fields["urgency"]);
+      //INFOTEL plugin_shipping
       echo "</td>";
       // Display validation state
       echo "<th>";
@@ -5025,14 +5072,15 @@ class Ticket extends CommonITILObject {
       } else {
          echo $tt->getBeginHiddenFieldValue('global_validation');
 
-         if (Session::haveRightsOr('ticketvalidation', TicketValidation::getCreateRights())
-             && $canupdate) {
-            TicketValidation::dropdownStatus('global_validation',
-                                             ['global' => true,
-                                                   'value'  => $this->fields['global_validation']]);
-         } else {
+         //TODO shipping
+         //         if (Session::haveRightsOr('ticketvalidation', TicketValidation::getCreateRights())
+         //             && $canupdate) {
+         //            TicketValidation::dropdownStatus('global_validation',
+         //                                             ['global' => true,
+         //                                                   'value'  => $this->fields['global_validation']]);
+         //         } else {
             echo TicketValidation::getStatus($this->fields['global_validation']);
-         }
+//         }
          echo $tt->getEndHiddenFieldValue('global_validation', $this);
 
       }
@@ -5096,30 +5144,66 @@ class Ticket extends CommonITILObject {
          $params = ['urgency'  => '__VALUE0__',
                     'impact'   => '__VALUE1__',
                     'priority' => $idpriority];
-         Ajax::updateItemOnSelectEvent(['dropdown_urgency'.$idurgency,
-                                             'dropdown_impact'.$idimpact],
+         Ajax::updateItemOnSelectEvent([$idurgency, 'dropdown_impact'.$idimpact],
                                        $idajax,
                                        $CFG_GLPI["root_doc"]."/ajax/priority.php", $params);
       }
       echo "</td>";
 
-      if (!$ID) {
-         echo "<th rowspan='2'>".$tt->getBeginHiddenFieldText('items_id');
-         printf(__('%1$s%2$s'), _n('Associated element', 'Associated elements', Session::getPluralNumber()), $tt->getMandatoryMark('items_id'));
+      echo "<th rowspan='2'>" . $tt->getBeginHiddenFieldText('items_id');
+      printf(__('%1$s%2$s'), _n('Associated element', 'Associated elements', Session::getPluralNumber()), $tt->getMandatoryMark('items_id'));
+      if ($ID && $canupdate) {
+         $ticket = new self();
+         echo "&nbsp;<a class='fa fa-chevron-circle-right pointer'  href='" . $ticket->getFormURL() . "?id=" . $ID .
+            "&amp;forcetab=Item_Ticket$1' title='" . __s('Update') . "'><span class='sr-only'>" .
+            __s('Update') . "</span></a>";
+      }
          echo $tt->getEndHiddenFieldText('items_id');
          echo "</th>";
-         echo "<td rowspan='2'>";
-         echo $tt->getBeginHiddenFieldValue('items_id');
-         $options['_canupdate'] = Session::haveRight('ticket', CREATE);
-         if ($options['_canupdate']) {
-            Item_Ticket::itemAddForm($this, $options);
+//      if (!$ID) {
+//         echo "<td rowspan='2'>";
+//         echo $tt->getBeginHiddenFieldValue('items_id');
+//         $options['_canupdate'] = Session::haveRight('ticket', CREATE);
+//         if ($options['_canupdate']) {
+//      Item_Ticket::itemAddForm($this, $options);
+         //INFOTEL - plugin shipping
+         unset($options['shipping']);
+         Plugin::doHook('plugin_shipping_item_ticket', ['ID' => $ID,
+            'tt' => $tt,
+            'canupdate' => $canupdate,
+            'can_requester' => $can_requester,
+            'item' => $this,
+            'options' => &$options]);
+         if (!isset($options['shipping'])) {
+            if (!$ID) {
+               echo "<td rowspan='2'>";
+               echo $tt->getBeginHiddenFieldValue('items_id');
+               $options['_canupdate'] = Session::haveRight('ticket', CREATE);
+               if ($options['_canupdate']) {
+                  Item_Ticket::itemAddForm($this, $options);
+               }
+               echo $tt->getEndHiddenFieldValue('items_id', $this);
+               echo "</td>";
+            } else {
+               echo "<td>";
+               echo $tt->getBeginHiddenFieldValue('items_id');
+               $options['_canupdate'] = $canupdate || $can_requester;
+               Item_Ticket::itemAddForm($this, $options);
+               echo $tt->getEndHiddenFieldValue('items_id', $this);
+               echo "</td>";
+            }
+//         echo $tt->getEndHiddenFieldValue('items_id', $this);
+//         echo "</td>";
+//
+//      } else {
+//         echo "<td>";
+//         echo $tt->getBeginHiddenFieldValue('items_id');
+//         $options['_canupdate'] = $canupdate || $can_requester;
+//         Item_Ticket::itemAddForm($this, $options);
+//         echo $tt->getEndHiddenFieldValue('items_id', $this);
+//         echo "</td>";
          }
-         echo $tt->getEndHiddenFieldValue('items_id', $this);
-         echo "</td>";
-      } else {
-         echo "<th></th>";
-         echo "<td></td>";
-      }
+         //INFOTEL - plugin shipping
       echo "</tr>";
 
       if (!$ID
@@ -5141,7 +5225,14 @@ class Ticket extends CommonITILObject {
 
       echo "</table>";
       if ($ID) {
-         $this->showActorsPartForm($ID, $options);
+         //INFOTEL - plugin shipping
+         Plugin::doHook('plugin_shipping_ticket_actors', ['ID' => $ID,
+            'item' => $this,
+            'options' => &$options]);
+         if (!isset($options['shipping'])) {
+            $this->showActorsPartForm($ID, $options);
+         }
+         //INFOTEL - plugin shipping
       }
 
       echo "<table class='tab_cadre_fixe' id='mainformtable4'>";

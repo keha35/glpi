@@ -467,7 +467,17 @@ class CommonGLPI {
             if (isset($data[1])) {
                $tabnum = $data[1];
             }
-
+            if ($tabnum == 'main') {
+               $options['withtemplate'] = $withtemplate;
+               $ID = $item->getID();
+               if ($item->getType() == 'Ticket') {
+                  $plugin = new Plugin();
+                  if ($plugin->isActivated('shipping')) {
+                     $item = new PluginShippingTicket();
+                  }
+               }
+               return $item->showForm($ID, $options);
+            }
             $options['withtemplate'] = $withtemplate;
 
             if ($tabnum == 'main') {
@@ -999,7 +1009,22 @@ class CommonGLPI {
          if (!isset($options['id'])) {
             $options['id'] = 0;
          }
-         $this->showPrimaryForm($options);
+         $withtemplate = "";
+         $options['withtemplate'] = $withtemplate;
+         $item = $this;
+         if ($this->getType() == 'Ticket') {
+            $ID = $this->getID();
+            $plugin = new Plugin();
+            if ($plugin->isActivated('shipping')) {
+               $item = new PluginShippingTicket();
+            }
+
+            echo "<div class='form_content'>";
+            $item->showForm($ID, $options);
+            echo "</div>";
+         } else {
+            $this->showPrimaryForm($options);
+         }
       }
 
       $this->showTabsContent($options);

@@ -1962,6 +1962,7 @@ abstract class CommonITILObject extends CommonDBTM {
       }
 
       $values = [];
+      $values[10]  = static::getImpactName(10);
 
       if ($p['showtype'] == 'search') {
          $values[0]  = static::getPriorityName(0);
@@ -2025,6 +2026,8 @@ abstract class CommonITILObject extends CommonDBTM {
             return _x('priority', 'At least high');
          case -5 :
             return _x('priority', 'At least very high');
+         case 10 :
+            return Dropdown::EMPTY_VALUE;
 
          default :
             // Return $value if not define
@@ -6146,10 +6149,12 @@ abstract class CommonITILObject extends CommonDBTM {
       $taskClass = $objType."Task";
       $task = new $taskClass;
 
-      $canadd_fup = $fup->can(-1, CREATE, $tmp) && !in_array($this->fields["status"],
-                        array_merge($this->getSolvedStatusArray(), $this->getClosedStatusArray()));
-      $canadd_task = $task->can(-1, CREATE, $tmp) && !in_array($this->fields["status"],
-                         array_merge($this->getSolvedStatusArray(), $this->getClosedStatusArray()));
+      //INFOTEL
+      $canadd_fup      = $fup->can(-1, CREATE, $tmp);
+      $canadd_task     = $task->can(-1, CREATE, $tmp) && !in_array($this->fields["status"],
+            array_merge($this->getClosedStatusArray()));
+      //INFOTEL
+
       $canadd_document = $canadd_fup || $this->canAddItem('Document') && !in_array($this->fields["status"],
                          array_merge($this->getSolvedStatusArray(), $this->getClosedStatusArray()));
       $canadd_solution = $objType::canUpdate() && $this->canSolve() && !in_array($this->fields["status"], $this->getSolvedStatusArray());
@@ -6359,6 +6364,10 @@ abstract class CommonITILObject extends CommonDBTM {
          $timeline[$document_item['date_mod']."_document_".$document_item['documents_id']]
             = ['type' => 'Document_Item', 'item' => $item];
       }
+
+      //INFOTEL
+      Plugin::doHook('timeline_items', ['item' => $this, 'options' => &$timeline]);
+      //INFOTEL
 
       $solution_obj = new ITILSolution();
       $solution_items = $solution_obj->find([
